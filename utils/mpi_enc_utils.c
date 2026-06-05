@@ -1055,6 +1055,131 @@ RK_S32 mpi_enc_opt_kmpp(void *ctx, const char *next)
     return 0;
 }
 
+static RK_S32 mpi_enc_opt_enable_qpmap_roi(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    MpiEncTestArgs *cmd = (MpiEncTestArgs *)obj_set->cmd;
+
+    if (next) {
+        cmd->enable_qpmap_roi = atoi(next);
+        return 1;
+    }
+
+    mpp_err("invalid qpmap roi enable\n");
+    return 0;
+}
+
+static RK_S32 mpi_enc_opt_strdup(char **dst, const char *next, const char *name)
+{
+    size_t len;
+
+    if (!next) {
+        mpp_err("invalid %s\n", name);
+        return 0;
+    }
+
+    len = strlen(next);
+    MPP_FREE(*dst);
+    *dst = mpp_calloc(char, len + 1);
+    if (!*dst)
+        return 0;
+    strcpy(*dst, next);
+
+    return 1;
+}
+
+static RK_S32 mpi_enc_opt_roi_boxes_json(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+
+    return mpi_enc_opt_strdup(&obj_set->cmd->roi_boxes_json, next,
+                              "roi_boxes_json");
+}
+
+static RK_S32 mpi_enc_opt_qpmap_s32(void *ctx, const char *next, RK_S32 *val,
+                                    const char *name)
+{
+    (void)ctx;
+    if (next) {
+        *val = atoi(next);
+        return 1;
+    }
+
+    mpp_err("invalid %s\n", name);
+    return 0;
+}
+
+static RK_S32 mpi_enc_opt_face_delta_qp(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    return mpi_enc_opt_qpmap_s32(ctx, next, &obj_set->cmd->face_delta_qp,
+                                 "face_delta_qp");
+}
+
+static RK_S32 mpi_enc_opt_plate_delta_qp(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    return mpi_enc_opt_qpmap_s32(ctx, next, &obj_set->cmd->plate_delta_qp,
+                                 "plate_delta_qp");
+}
+
+static RK_S32 mpi_enc_opt_delta_qp_min(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    return mpi_enc_opt_qpmap_s32(ctx, next, &obj_set->cmd->delta_qp_min,
+                                 "delta_qp_min");
+}
+
+static RK_S32 mpi_enc_opt_delta_qp_max(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    return mpi_enc_opt_qpmap_s32(ctx, next, &obj_set->cmd->delta_qp_max,
+                                 "delta_qp_max");
+}
+
+static RK_S32 mpi_enc_opt_enable_bg_compensation(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    MpiEncTestArgs *cmd = (MpiEncTestArgs *)obj_set->cmd;
+
+    if (next) {
+        cmd->enable_bg_compensation = atoi(next);
+        return 1;
+    }
+
+    mpp_err("invalid enable_bg_compensation\n");
+    return 0;
+}
+
+static RK_S32 mpi_enc_opt_bg_delta_qp_max(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    return mpi_enc_opt_qpmap_s32(ctx, next, &obj_set->cmd->bg_delta_qp_max,
+                                 "bg_delta_qp_max");
+}
+
+static RK_S32 mpi_enc_opt_dump_qpmap_debug(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    MpiEncTestArgs *cmd = (MpiEncTestArgs *)obj_set->cmd;
+
+    if (next) {
+        cmd->dump_qpmap_debug = atoi(next);
+        return 1;
+    }
+
+    mpp_err("invalid dump_qpmap_debug\n");
+    return 0;
+}
+
+static RK_S32 mpi_enc_opt_qpmap_debug_dir(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+
+    return mpi_enc_opt_strdup(&obj_set->cmd->qpmap_debug_dir, next,
+                              "qpmap_debug_dir");
+}
+
 static MppOptInfo enc_opts[] = {
     {"i",       "input_file",           "input frame file",                         mpi_enc_opt_i},
     {"o",       "output_file",          "output encoded bitstream file",            mpi_enc_opt_o},
@@ -1094,7 +1219,17 @@ static MppOptInfo enc_opts[] = {
     {"lmd",     "lambda idx",           "lambda_idx_p 0~8",                         mpi_enc_opt_lmd},
     {"lmdi",    "lambda i idx",         "lambda_idx_i 0~8",                         mpi_enc_opt_lmdi},
     {"speed",   "enc speed",            "speed mode",                               mpi_enc_opt_speed},
-    {"kmpp",    "kmpp path enable",     "kmpp path enable",                         mpi_enc_opt_kmpp}
+    {"kmpp",    "kmpp path enable",     "kmpp path enable",                         mpi_enc_opt_kmpp},
+    {"enable_qpmap_roi", "enable_qpmap_roi", "enable QPMAP0 ROI delta QP",          mpi_enc_opt_enable_qpmap_roi},
+    {"roi_boxes_json", "roi_boxes_json", "ROI boxes JSON/JSONL file",               mpi_enc_opt_roi_boxes_json},
+    {"face_delta_qp", "face_delta_qp", "face ROI delta QP",                         mpi_enc_opt_face_delta_qp},
+    {"plate_delta_qp", "plate_delta_qp", "plate ROI delta QP",                      mpi_enc_opt_plate_delta_qp},
+    {"delta_qp_min", "delta_qp_min", "min ROI delta QP",                            mpi_enc_opt_delta_qp_min},
+    {"delta_qp_max", "delta_qp_max", "max ROI delta QP",                            mpi_enc_opt_delta_qp_max},
+    {"enable_bg_compensation", "enable_bg_compensation", "enable background QP compensation", mpi_enc_opt_enable_bg_compensation},
+    {"bg_delta_qp_max", "bg_delta_qp_max", "max background delta QP",               mpi_enc_opt_bg_delta_qp_max},
+    {"dump_qpmap_debug", "dump_qpmap_debug", "dump QPMAP debug txt",                mpi_enc_opt_dump_qpmap_debug},
+    {"qpmap_debug_dir", "qpmap_debug_dir", "QPMAP debug dump directory",            mpi_enc_opt_qpmap_debug_dir}
 };
 
 static RK_U32 enc_opt_cnt = MPP_ARRAY_ELEMS(enc_opts);
@@ -1167,6 +1302,7 @@ static void mpi_enc_cmd_env_get(MpiEncTestArgs *cmd)
     mpp_env_get_u32("jpeg_osd_case", &cmd->jpeg_osd_case, cmd->jpeg_osd_case);
     mpp_env_get_u32("osd_mode", &cmd->osd_mode, cmd->osd_mode);
     mpp_env_get_u32("roi_enable", &cmd->roi_enable, cmd->roi_enable);
+    mpp_env_get_u32("enable_qpmap_roi", &cmd->enable_qpmap_roi, cmd->enable_qpmap_roi);
     mpp_env_get_u32("user_data_enable", &cmd->user_data_enable, cmd->user_data_enable);
     mpp_env_get_u32("constraint_set", &cmd->constraint_set, cmd->constraint_set);
     mpp_env_get_u32("gop_mode", (RK_U32 *)&cmd->gop_mode, (RK_U32)cmd->gop_mode);
@@ -2036,6 +2172,29 @@ MPP_RET mpi_enc_cfg_setup(MpiEncTestData *p, MpiEncTestArgs *cmd, MppEncCfg cfg_
     if (cmd->roi_enable) {
         mpp_enc_roi_init(&p->roi_ctx, p->width, p->height, p->type, 4);
         mpp_assert(p->roi_ctx);
+    }
+
+    if (cmd->enable_qpmap_roi) {
+        MppEncQpmapRoiCfg qpmap_cfg;
+
+        memset(&qpmap_cfg, 0, sizeof(qpmap_cfg));
+        qpmap_cfg.enable = cmd->enable_qpmap_roi;
+        qpmap_cfg.boxes_file = cmd->roi_boxes_json;
+        qpmap_cfg.face_delta_qp = cmd->face_delta_qp;
+        qpmap_cfg.plate_delta_qp = cmd->plate_delta_qp;
+        qpmap_cfg.delta_qp_min = cmd->delta_qp_min;
+        qpmap_cfg.delta_qp_max = cmd->delta_qp_max;
+        qpmap_cfg.enable_bg_compensation = cmd->enable_bg_compensation;
+        qpmap_cfg.bg_delta_qp_max = cmd->bg_delta_qp_max;
+        qpmap_cfg.dump_qpmap_debug = cmd->dump_qpmap_debug;
+        qpmap_cfg.debug_dir = cmd->qpmap_debug_dir;
+
+        ret = mpp_enc_qpmap_roi_init(&p->qpmap_roi_ctx, p->width, p->height,
+                                     p->type, &qpmap_cfg);
+        if (ret) {
+            mpp_err("qpmap roi init failed ret %d\n", ret);
+            goto RET;
+        }
     }
 
 RET:

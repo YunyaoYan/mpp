@@ -135,11 +135,12 @@ MPP_RET mpp_opt_parse(MppOpt opt, int argc, char **argv)
 
         if (opts[0] == '-' && opts[1] != '\0') {
             MppOptInfo *info = NULL;
-            MppTrieInfo *node = mpp_trie_get_info(impl->trie, opts + 1);
+            char *name = opts + ((opts[1] == '-') ? 2 : 1);
+            MppTrieInfo *node = mpp_trie_get_info(impl->trie, name);
             RK_S32 step = 0;
 
             if (NULL == node) {
-                mpp_err("invalid option %s\n", opts + 1);
+                mpp_err("invalid option %s\n", name);
                 continue;
             }
 
