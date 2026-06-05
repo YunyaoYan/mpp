@@ -18,6 +18,12 @@ static rk_s32 mpp_enc_args_impl_init(void *entry, KmppObj obj, const char *calle
     args->nthreads = 1;
     args->frm_step = 1;
     args->rc_mode = MPP_ENC_RC_MODE_BUTT;
+    args->face_delta_qp = -3;
+    args->plate_delta_qp = -6;
+    args->delta_qp_min = -8;
+    args->delta_qp_max = 4;
+    args->enable_bg_compensation = 1;
+    args->bg_delta_qp_max = 4;
 
     (void) obj;
     (void) caller;
@@ -43,6 +49,8 @@ static rk_s32 mpp_enc_args_impl_deinit(void *entry, KmppObj obj, const char *cal
     MPP_FREE(args->file_output);
     MPP_FREE(args->file_cfg);
     MPP_FREE(args->file_slt);
+    MPP_FREE(args->roi_boxes_json);
+    MPP_FREE(args->qpmap_debug_dir);
 
     (void) obj;
     (void) caller;
@@ -86,6 +94,14 @@ static rk_s32 mpp_enc_args_impl_dump(void *entry)
     ENTRY(prefix, u32,  rk_u32,     user_data_enable, FLAG_NONE,       user_data_enable) \
     ENTRY(prefix, u32,  rk_u32,     roi_enable,       FLAG_NONE,       roi_enable) \
     ENTRY(prefix, u32,  rk_u32,     roi_jpeg_enable,  FLAG_NONE,       roi_jpeg_enable) \
+    ENTRY(prefix, u32,  rk_u32,     enable_qpmap_roi, FLAG_NONE,       enable_qpmap_roi) \
+    ENTRY(prefix, s32,  rk_s32,     face_delta_qp,    FLAG_NONE,       face_delta_qp) \
+    ENTRY(prefix, s32,  rk_s32,     plate_delta_qp,   FLAG_NONE,       plate_delta_qp) \
+    ENTRY(prefix, s32,  rk_s32,     delta_qp_min,     FLAG_NONE,       delta_qp_min) \
+    ENTRY(prefix, s32,  rk_s32,     delta_qp_max,     FLAG_NONE,       delta_qp_max) \
+    ENTRY(prefix, u32,  rk_u32,     enable_bg_compensation, FLAG_NONE, enable_bg_compensation) \
+    ENTRY(prefix, s32,  rk_s32,     bg_delta_qp_max,  FLAG_NONE,       bg_delta_qp_max) \
+    ENTRY(prefix, u32,  rk_u32,     dump_qpmap_debug, FLAG_NONE,       dump_qpmap_debug) \
     ENTRY(prefix, u32,  rk_u32,     jpeg_osd_case,    FLAG_NONE,       jpeg_osd_case) \
     ENTRY(prefix, u32,  rk_u32,     constraint_set,   FLAG_NONE,       constraint_set) \
     ENTRY(prefix, u32,  rk_u32,     sei_mode,         FLAG_NONE,       sei_mode) \

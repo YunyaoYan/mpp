@@ -249,7 +249,8 @@ MPP_RET test_mpp_run(MpiEncMultiCtxInfo *info)
         mpp_meta_set_packet(meta, KEY_OUTPUT_PACKET, packet);
         mpp_meta_set_buffer(meta, KEY_MOTION_INFO, priv->md_info);
 
-        if (cmd->osd_enable || cmd->user_data_enable || cmd->roi_enable || cmd->roi_jpeg_enable) {
+        if (cmd->osd_enable || cmd->user_data_enable || cmd->roi_enable ||
+            cmd->roi_jpeg_enable || cmd->enable_qpmap_roi) {
             if (cmd->user_data_enable) {
                 MppEncUserData user_data;
                 char *str = "this is user data\n";
@@ -347,6 +348,15 @@ MPP_RET test_mpp_run(MpiEncMultiCtxInfo *info)
 
                 /* send roi info by metadata */
                 mpp_enc_roi_setup_meta(p->roi_ctx, meta);
+            }
+
+            if (cmd->enable_qpmap_roi) {
+                ret = mpp_enc_qpmap_roi_setup_meta(p->qpmap_roi_ctx, meta,
+                                                   p->frm_cnt_out);
+                if (ret) {
+                    mpp_err("setup qpmap roi meta failed ret %d\n", ret);
+                    goto RET;
+                }
             }
 
             if (cmd->roi_jpeg_enable) {
@@ -672,6 +682,11 @@ MPP_TEST_OUT:
     if (p->roi_ctx) {
         mpp_enc_roi_deinit(p->roi_ctx);
         p->roi_ctx = NULL;
+    }
+
+    if (p->qpmap_roi_ctx) {
+        mpp_enc_qpmap_roi_deinit(p->qpmap_roi_ctx);
+        p->qpmap_roi_ctx = NULL;
     }
     if (p->init_kcfg)
         mpp_venc_kcfg_deinit(p->init_kcfg);
