@@ -83,6 +83,7 @@ Added options:
 --enable_qpmap_roi 0|1
 --roi_boxes_json path/to/boxes.jsonl
 --face_delta_qp -3
+--face_expand_blocks 1
 --plate_delta_qp -6
 --delta_qp_min -8
 --delta_qp_max 4
@@ -166,6 +167,10 @@ It contains two frame records:
 The boxes are designed for `640x360` input. Frames that are not listed in the
 JSONL file will get an all-zero QPMAP.
 
+Face boxes are expanded by one 16x16 block on each side by default. This helps
+when the detector box only covers the eyebrow-to-mouth area instead of the
+whole face/head region. Set `--face_expand_blocks 0` to disable this expansion.
+
 ### 4. Run baseline
 
 ```bash
@@ -192,6 +197,7 @@ JSONL file will get an all-zero QPMAP.
   --enable_qpmap_roi 1 \
   --roi_boxes_json test/qpmap_roi_overlap_boxes.jsonl \
   --face_delta_qp -3 \
+  --face_expand_blocks 1 \
   --plate_delta_qp -6 \
   --enable_bg_compensation 1 \
   --dump_qpmap_debug 1 \
@@ -282,6 +288,24 @@ Default ROI deltas:
 face_delta_qp  = -3
 plate_delta_qp = -6
 ```
+
+Default face expansion:
+
+```text
+face_expand_blocks = 1
+```
+
+The expansion is applied after converting the face box to the 16x16 QPMAP grid:
+
+```text
+block_x1 -= face_expand_blocks
+block_y1 -= face_expand_blocks
+block_x2 += face_expand_blocks
+block_y2 += face_expand_blocks
+```
+
+Then the expanded block range is clamped to the frame boundary. Plate boxes are
+not expanded by this option.
 
 Plate regions have stronger protection than face regions. When regions overlap,
 the smaller delta QP is used.
@@ -375,6 +399,7 @@ Example for `mpi_enc_test`:
   --enable_qpmap_roi 1 \
   --roi_boxes_json boxes.jsonl \
   --face_delta_qp -3 \
+  --face_expand_blocks 1 \
   --plate_delta_qp -6 \
   --enable_bg_compensation 1 \
   --dump_qpmap_debug 1 \

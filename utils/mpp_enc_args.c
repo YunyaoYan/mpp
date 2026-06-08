@@ -19,6 +19,7 @@ static rk_s32 mpp_enc_args_impl_init(void *entry, KmppObj obj, const char *calle
     args->frm_step = 1;
     args->rc_mode = MPP_ENC_RC_MODE_BUTT;
     args->face_delta_qp = -3;
+    args->face_expand_blocks = 1;
     args->plate_delta_qp = -6;
     args->delta_qp_min = -8;
     args->delta_qp_max = 4;
@@ -96,6 +97,7 @@ static rk_s32 mpp_enc_args_impl_dump(void *entry)
     ENTRY(prefix, u32,  rk_u32,     roi_jpeg_enable,  FLAG_NONE,       roi_jpeg_enable) \
     ENTRY(prefix, u32,  rk_u32,     enable_qpmap_roi, FLAG_NONE,       enable_qpmap_roi) \
     ENTRY(prefix, s32,  rk_s32,     face_delta_qp,    FLAG_NONE,       face_delta_qp) \
+    ENTRY(prefix, s32,  rk_s32,     face_expand_blocks, FLAG_NONE,     face_expand_blocks) \
     ENTRY(prefix, s32,  rk_s32,     plate_delta_qp,   FLAG_NONE,       plate_delta_qp) \
     ENTRY(prefix, s32,  rk_s32,     delta_qp_min,     FLAG_NONE,       delta_qp_min) \
     ENTRY(prefix, s32,  rk_s32,     delta_qp_max,     FLAG_NONE,       delta_qp_max) \
