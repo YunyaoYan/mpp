@@ -16,6 +16,7 @@ typedef struct MppEncQpmapRoiCfg_t {
     RK_U32              enable;
     const char          *boxes_file;
     RK_S32              face_delta_qp;
+    RK_S32              face_expand_blocks;
     RK_S32              plate_delta_qp;
     RK_S32              delta_qp_min;
     RK_S32              delta_qp_max;

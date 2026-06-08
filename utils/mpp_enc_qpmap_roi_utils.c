@@ -437,6 +437,14 @@ static MPP_RET generate_qpmap(MppEncQpmapRoiCtx ctx, const RoiFrameBoxes *boxes,
             by1 = y1 / 16;
             bx2 = (x2 + 15) / 16 - 1;
             by2 = (y2 + 15) / 16 - 1;
+            if (box->type == ROI_BOX_FACE && ctx->cfg.face_expand_blocks > 0) {
+                RK_S32 expand = ctx->cfg.face_expand_blocks;
+
+                bx1 -= expand;
+                by1 -= expand;
+                bx2 += expand;
+                by2 += expand;
+            }
             bx1 = qpmap_clamp_s32(bx1, 0, (RK_S32)ctx->mb_w - 1);
             bx2 = qpmap_clamp_s32(bx2, 0, (RK_S32)ctx->mb_w - 1);
             by1 = qpmap_clamp_s32(by1, 0, (RK_S32)ctx->mb_h - 1);
