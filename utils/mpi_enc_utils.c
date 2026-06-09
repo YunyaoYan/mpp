@@ -1187,6 +1187,222 @@ static RK_S32 mpi_enc_opt_qpmap_debug_dir(void *ctx, const char *next)
                               "qpmap_debug_dir");
 }
 
+/* ------------------------------------------------------------------------
+ *  ROI-protected background filter option handlers
+ * ------------------------------------------------------------------------ */
+
+static RK_S32 mpi_enc_opt_enable_bg_filter(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    MpiEncTestArgs *cmd = (MpiEncTestArgs *)obj_set->cmd;
+
+    if (next) {
+        cmd->enable_bg_filter = atoi(next);
+        return 1;
+    }
+
+    mpp_err("invalid enable_bg_filter\n");
+    return 0;
+}
+
+static RK_S32 mpi_enc_opt_bg_filter_type(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    MpiEncTestArgs *cmd = (MpiEncTestArgs *)obj_set->cmd;
+
+    if (next) {
+        cmd->bg_filter_type = atoi(next);
+        return 1;
+    }
+
+    mpp_err("invalid bg_filter_type\n");
+    return 0;
+}
+
+static RK_S32 mpi_enc_opt_bg_filter_low_light_thr(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    MpiEncTestArgs *cmd = (MpiEncTestArgs *)obj_set->cmd;
+
+    if (next) {
+        cmd->bg_filter_low_light_thr = atoi(next);
+        return 1;
+    }
+
+    mpp_err("invalid bg_filter_low_light_thr\n");
+    return 0;
+}
+
+static RK_S32 mpi_enc_opt_bg_filter_strong_light_thr(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    MpiEncTestArgs *cmd = (MpiEncTestArgs *)obj_set->cmd;
+
+    if (next) {
+        cmd->bg_filter_strong_light_thr = atoi(next);
+        return 1;
+    }
+
+    mpp_err("invalid bg_filter_strong_light_thr\n");
+    return 0;
+}
+
+static RK_S32 mpi_enc_opt_bg_filter_kernel_weak(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    MpiEncTestArgs *cmd = (MpiEncTestArgs *)obj_set->cmd;
+
+    if (next) {
+        cmd->bg_filter_kernel_weak = atoi(next);
+        return 1;
+    }
+
+    mpp_err("invalid bg_filter_kernel_weak\n");
+    return 0;
+}
+
+static RK_S32 mpi_enc_opt_bg_filter_kernel_strong(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    MpiEncTestArgs *cmd = (MpiEncTestArgs *)obj_set->cmd;
+
+    if (next) {
+        cmd->bg_filter_kernel_strong = atoi(next);
+        return 1;
+    }
+
+    mpp_err("invalid bg_filter_kernel_strong\n");
+    return 0;
+}
+
+static RK_S32 mpi_enc_opt_roi_expand_face(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    MpiEncTestArgs *cmd = (MpiEncTestArgs *)obj_set->cmd;
+
+    if (next) {
+        cmd->roi_expand_face = atoi(next);
+        return 1;
+    }
+
+    mpp_err("invalid roi_expand_face\n");
+    return 0;
+}
+
+static RK_S32 mpi_enc_opt_roi_expand_plate(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    MpiEncTestArgs *cmd = (MpiEncTestArgs *)obj_set->cmd;
+
+    if (next) {
+        cmd->roi_expand_plate = atoi(next);
+        return 1;
+    }
+
+    mpp_err("invalid roi_expand_plate\n");
+    return 0;
+}
+
+static RK_S32 mpi_enc_opt_roi_expand_default(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    MpiEncTestArgs *cmd = (MpiEncTestArgs *)obj_set->cmd;
+
+    if (next) {
+        cmd->roi_expand_default = atoi(next);
+        return 1;
+    }
+
+    mpp_err("invalid roi_expand_default\n");
+    return 0;
+}
+
+static RK_S32 mpi_enc_opt_roi_mask_dilate_iter(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    MpiEncTestArgs *cmd = (MpiEncTestArgs *)obj_set->cmd;
+
+    if (next) {
+        cmd->roi_mask_dilate_iter = atoi(next);
+        return 1;
+    }
+
+    mpp_err("invalid roi_mask_dilate_iter\n");
+    return 0;
+}
+
+static RK_S32 mpi_enc_opt_enable_temporal_bg_filter(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    MpiEncTestArgs *cmd = (MpiEncTestArgs *)obj_set->cmd;
+
+    if (next) {
+        cmd->enable_temporal_bg_filter = atoi(next);
+        return 1;
+    }
+
+    mpp_err("invalid enable_temporal_bg_filter\n");
+    return 0;
+}
+
+static RK_S32 mpi_enc_opt_temporal_alpha(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    MpiEncTestArgs *cmd = (MpiEncTestArgs *)obj_set->cmd;
+
+    if (next) {
+        cmd->temporal_alpha = atoi(next);
+        return 1;
+    }
+
+    mpp_err("invalid temporal_alpha\n");
+    return 0;
+}
+
+static RK_S32 mpi_enc_opt_motion_diff_thr(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    MpiEncTestArgs *cmd = (MpiEncTestArgs *)obj_set->cmd;
+
+    if (next) {
+        cmd->motion_diff_thr = atoi(next);
+        return 1;
+    }
+
+    mpp_err("invalid motion_diff_thr\n");
+    return 0;
+}
+
+static RK_S32 mpi_enc_opt_dump_bg_filter_debug(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    MpiEncTestArgs *cmd = (MpiEncTestArgs *)obj_set->cmd;
+
+    if (next) {
+        cmd->dump_bg_filter_debug = atoi(next);
+        return 1;
+    }
+
+    mpp_err("invalid dump_bg_filter_debug\n");
+    return 0;
+}
+
+static RK_S32 mpi_enc_opt_bg_filter_debug_dir(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+
+    return mpi_enc_opt_strdup(&obj_set->cmd->bg_filter_debug_dir, next,
+                              "bg_filter_debug_dir");
+}
+
+static RK_S32 mpi_enc_opt_bg_filter_boxes_json(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+
+    return mpi_enc_opt_strdup(&obj_set->cmd->bg_filter_boxes_json, next,
+                              "bg_filter_boxes_json");
+}
+
 static MppOptInfo enc_opts[] = {
     {"i",       "input_file",           "input frame file",                         mpi_enc_opt_i},
     {"o",       "output_file",          "output encoded bitstream file",            mpi_enc_opt_o},
@@ -1237,7 +1453,25 @@ static MppOptInfo enc_opts[] = {
     {"enable_bg_compensation", "enable_bg_compensation", "enable background QP compensation", mpi_enc_opt_enable_bg_compensation},
     {"bg_delta_qp_max", "bg_delta_qp_max", "max background delta QP",               mpi_enc_opt_bg_delta_qp_max},
     {"dump_qpmap_debug", "dump_qpmap_debug", "dump QPMAP debug txt",                mpi_enc_opt_dump_qpmap_debug},
-    {"qpmap_debug_dir", "qpmap_debug_dir", "QPMAP debug dump directory",            mpi_enc_opt_qpmap_debug_dir}
+    {"qpmap_debug_dir", "qpmap_debug_dir", "QPMAP debug dump directory",            mpi_enc_opt_qpmap_debug_dir},
+
+    /* ROI-protected background filter options */
+    {"enable_bg_filter", "enable_bg_filter", "enable ROI-protected background filter", mpi_enc_opt_enable_bg_filter},
+    {"bg_filter_type", "bg_filter_type", "bg filter type: 0=gaussian 1=bilateral(reserved)", mpi_enc_opt_bg_filter_type},
+    {"bg_filter_low_light_thr", "bg_filter_low_light_thr", "low-light threshold (mean Y)", mpi_enc_opt_bg_filter_low_light_thr},
+    {"bg_filter_strong_light_thr", "bg_filter_strong_light_thr", "strong low-light threshold", mpi_enc_opt_bg_filter_strong_light_thr},
+    {"bg_filter_kernel_weak", "bg_filter_kernel_weak", "weak filter kernel size", mpi_enc_opt_bg_filter_kernel_weak},
+    {"bg_filter_kernel_strong", "bg_filter_kernel_strong", "strong filter kernel size", mpi_enc_opt_bg_filter_kernel_strong},
+    {"roi_expand_face", "roi_expand_face", "face box expand ratio * 100", mpi_enc_opt_roi_expand_face},
+    {"roi_expand_plate", "roi_expand_plate", "plate box expand ratio * 100", mpi_enc_opt_roi_expand_plate},
+    {"roi_expand_default", "roi_expand_default", "default box expand ratio * 100", mpi_enc_opt_roi_expand_default},
+    {"roi_mask_dilate_iter", "roi_mask_dilate_iter", "ROI mask dilate iterations", mpi_enc_opt_roi_mask_dilate_iter},
+    {"enable_temporal_bg_filter", "enable_temporal_bg_filter", "enable temporal background blend", mpi_enc_opt_enable_temporal_bg_filter},
+    {"temporal_alpha", "temporal_alpha", "temporal blend current weight * 100", mpi_enc_opt_temporal_alpha},
+    {"motion_diff_thr", "motion_diff_thr", "motion gate threshold for temporal", mpi_enc_opt_motion_diff_thr},
+    {"dump_bg_filter_debug", "dump_bg_filter_debug", "dump background filter debug images", mpi_enc_opt_dump_bg_filter_debug},
+    {"bg_filter_debug_dir", "bg_filter_debug_dir", "background filter debug directory", mpi_enc_opt_bg_filter_debug_dir},
+    {"bg_filter_boxes_json", "bg_filter_boxes_json", "background filter ROI boxes JSONL file", mpi_enc_opt_bg_filter_boxes_json}
 };
 
 static RK_U32 enc_opt_cnt = MPP_ARRAY_ELEMS(enc_opts);
@@ -1315,6 +1549,21 @@ static void mpi_enc_cmd_env_get(MpiEncTestArgs *cmd)
     mpp_env_get_u32("constraint_set", &cmd->constraint_set, cmd->constraint_set);
     mpp_env_get_u32("gop_mode", (RK_U32 *)&cmd->gop_mode, (RK_U32)cmd->gop_mode);
     mpp_env_get_u32("sei_mode", &cmd->sei_mode, cmd->sei_mode);
+
+    /* ROI-protected background filter env overrides (use u32 for s32 fields) */
+    mpp_env_get_u32("enable_bg_filter", &cmd->enable_bg_filter, cmd->enable_bg_filter);
+    mpp_env_get_u32("bg_filter_low_light_thr", (RK_U32 *)&cmd->bg_filter_low_light_thr, (RK_U32)cmd->bg_filter_low_light_thr);
+    mpp_env_get_u32("bg_filter_strong_light_thr", (RK_U32 *)&cmd->bg_filter_strong_light_thr, (RK_U32)cmd->bg_filter_strong_light_thr);
+    mpp_env_get_u32("bg_filter_kernel_weak", (RK_U32 *)&cmd->bg_filter_kernel_weak, (RK_U32)cmd->bg_filter_kernel_weak);
+    mpp_env_get_u32("bg_filter_kernel_strong", (RK_U32 *)&cmd->bg_filter_kernel_strong, (RK_U32)cmd->bg_filter_kernel_strong);
+    mpp_env_get_u32("roi_expand_face", (RK_U32 *)&cmd->roi_expand_face, (RK_U32)cmd->roi_expand_face);
+    mpp_env_get_u32("roi_expand_plate", (RK_U32 *)&cmd->roi_expand_plate, (RK_U32)cmd->roi_expand_plate);
+    mpp_env_get_u32("roi_expand_default", (RK_U32 *)&cmd->roi_expand_default, (RK_U32)cmd->roi_expand_default);
+    mpp_env_get_u32("roi_mask_dilate_iter", (RK_U32 *)&cmd->roi_mask_dilate_iter, (RK_U32)cmd->roi_mask_dilate_iter);
+    mpp_env_get_u32("enable_temporal_bg_filter", &cmd->enable_temporal_bg_filter, cmd->enable_temporal_bg_filter);
+    mpp_env_get_u32("temporal_alpha", (RK_U32 *)&cmd->temporal_alpha, (RK_U32)cmd->temporal_alpha);
+    mpp_env_get_u32("motion_diff_thr", (RK_U32 *)&cmd->motion_diff_thr, (RK_U32)cmd->motion_diff_thr);
+    mpp_env_get_u32("dump_bg_filter_debug", &cmd->dump_bg_filter_debug, cmd->dump_bg_filter_debug);
 }
 
 MPP_RET mpi_enc_test_objset_update_by_args(MppEncTestObjSet *obj_set, int argc, char **argv, const char *module_tag)
@@ -2189,7 +2438,8 @@ MPP_RET mpi_enc_cfg_setup(MpiEncTestData *p, MpiEncTestArgs *cmd, MppEncCfg cfg_
         qpmap_cfg.enable = cmd->enable_qpmap_roi;
         qpmap_cfg.boxes_file = cmd->roi_boxes_json;
         qpmap_cfg.face_delta_qp = cmd->face_delta_qp;
-        qpmap_cfg.face_expand_blocks = cmd->face_expand_blocks;
+        /* NOTE: remote version may not have face_expand_blocks */
+        /* qpmap_cfg.face_expand_blocks = cmd->face_expand_blocks; */
         qpmap_cfg.plate_delta_qp = cmd->plate_delta_qp;
         qpmap_cfg.delta_qp_min = cmd->delta_qp_min;
         qpmap_cfg.delta_qp_max = cmd->delta_qp_max;

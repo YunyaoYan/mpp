@@ -28,6 +28,7 @@
 #include "camera_source.h"
 #include "mpp_enc_roi_utils.h"
 #include "mpp_enc_qpmap_roi_utils.h"
+#include "mpp_enc_bg_filter_utils.h"
 
 #define MPI_ENC_MAX_CHN 30
 
@@ -141,6 +142,24 @@ typedef struct MpiEncTestArgs_t {
     char                *qpmap_debug_dir;
     RK_U32              jpeg_osd_case;
 
+    /* ROI-protected background filtering */
+    RK_U32              enable_bg_filter;
+    RK_S32              bg_filter_type;
+    RK_S32              bg_filter_low_light_thr;
+    RK_S32              bg_filter_strong_light_thr;
+    RK_S32              bg_filter_kernel_weak;
+    RK_S32              bg_filter_kernel_strong;
+    RK_S32              roi_expand_face;
+    RK_S32              roi_expand_plate;
+    RK_S32              roi_expand_default;
+    RK_S32              roi_mask_dilate_iter;
+    RK_U32              enable_temporal_bg_filter;
+    RK_S32              temporal_alpha;
+    RK_S32              motion_diff_thr;
+    RK_U32              dump_bg_filter_debug;
+    char                *bg_filter_debug_dir;
+    char                *bg_filter_boxes_json;
+
     RK_U32              mirroring;
     RK_U32              rotation;
     RK_U32              flip;
@@ -203,6 +222,7 @@ typedef struct {
     CamSource           *cam_ctx;
     MppEncRoiCtx        roi_ctx;
     MppEncQpmapRoiCtx   qpmap_roi_ctx;
+    MppEncBgFilterCtx   bg_filter_ctx;
 
     MppVencKcfg         init_kcfg;
 
