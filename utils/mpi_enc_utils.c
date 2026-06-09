@@ -1123,6 +1123,13 @@ static RK_S32 mpi_enc_opt_face_expand_blocks(void *ctx, const char *next)
                                  "face_expand_blocks");
 }
 
+static RK_S32 mpi_enc_opt_face_abs_qp(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    return mpi_enc_opt_qpmap_s32(ctx, next, &obj_set->cmd->face_abs_qp,
+                                 "face_abs_qp");
+}
+
 static RK_S32 mpi_enc_opt_plate_delta_qp(void *ctx, const char *next)
 {
     MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
@@ -1231,6 +1238,7 @@ static MppOptInfo enc_opts[] = {
     {"roi_boxes_json", "roi_boxes_json", "ROI boxes JSON/JSONL file",               mpi_enc_opt_roi_boxes_json},
     {"face_delta_qp", "face_delta_qp", "face ROI delta QP",                         mpi_enc_opt_face_delta_qp},
     {"face_expand_blocks", "face_expand_blocks", "face ROI expansion in 16x16 blocks", mpi_enc_opt_face_expand_blocks},
+    {"face_abs_qp", "face_abs_qp", "face ROI absolute QP (>=0, overrides delta)",    mpi_enc_opt_face_abs_qp},
     {"plate_delta_qp", "plate_delta_qp", "plate ROI delta QP",                      mpi_enc_opt_plate_delta_qp},
     {"delta_qp_min", "delta_qp_min", "min ROI delta QP",                            mpi_enc_opt_delta_qp_min},
     {"delta_qp_max", "delta_qp_max", "max ROI delta QP",                            mpi_enc_opt_delta_qp_max},

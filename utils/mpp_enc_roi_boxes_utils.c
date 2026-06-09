@@ -299,7 +299,8 @@ static RK_S32 clamp_s32(RK_S32 v, RK_S32 lo, RK_S32 hi)
 
 RK_S32 mpp_enc_roi_boxes_apply(MppEncRoiBoxesCtx ctx, MppEncRoiCtx roi_ctx,
                                RK_S32 frame_idx, RK_U32 width, RK_U32 height,
-                               RK_S32 face_delta, RK_S32 plate_delta)
+                               RK_S32 face_delta, RK_S32 plate_delta,
+                               RK_S32 face_expand_blocks, RK_S32 face_abs_qp)
 {
     const RoiFrameBoxes *frame = NULL;
     RK_S32 mb_w = (RK_S32)(MPP_ALIGN(width, 16) / 16);
@@ -337,6 +338,13 @@ RK_S32 mpp_enc_roi_boxes_apply(MppEncRoiBoxesCtx ctx, MppEncRoiCtx roi_ctx,
         if (box->x2 <= box->x1 || box->y2 <= box->y1)
             continue;
 
+        if (box->type == ROI_BOX_FACE && face_expand_blocks > 0) {
+            bx1 -= face_expand_blocks;
+            by1 -= face_expand_blocks;
+            bx2 += face_expand_blocks;
+            by2 += face_expand_blocks;
+        }
+
         bx1 = clamp_s32(bx1, 0, mb_w - 1);
         by1 = clamp_s32(by1, 0, mb_h - 1);
         bx2 = clamp_s32(bx2, bx1 + 1, mb_w);
@@ -351,17 +359,12 @@ RK_S32 mpp_enc_roi_boxes_apply(MppEncRoiBoxesCtx ctx, MppEncRoiCtx roi_ctx,
         region.w = (RK_U16)(bw * 16);
         region.h = (RK_U16)(bh * 16);
         region.force_intra = 0;
-        {
-            /* diagnostic: ROI_ABS_QP env forces absolute qp mode */
-            const char *abs_env = getenv("ROI_ABS_QP");
-
-            if (abs_env && abs_env[0]) {
-                region.qp_mode = 1;                      /* absolute qp */
-                region.qp_val = clamp_s32(atoi(abs_env), 0, 51);
-            } else {
-                region.qp_mode = 0;                      /* relative qp */
-                region.qp_val = clamp_s32(delta, -51, 51);
-            }
+        if (box->type == ROI_BOX_FACE && face_abs_qp >= 0) {
+            region.qp_mode = 1;
+            region.qp_val = clamp_s32(face_abs_qp, 0, 51);
+        } else {
+            region.qp_mode = 0;
+            region.qp_val = clamp_s32(delta, -51, 51);
         }
 
         if (mpp_enc_roi_add_region(roi_ctx, &region) == MPP_OK)

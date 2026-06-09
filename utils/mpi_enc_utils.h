@@ -133,6 +133,7 @@ typedef struct MpiEncTestArgs_t {
     char                *roi_boxes_json;
     RK_S32              face_delta_qp;
     RK_S32              face_expand_blocks;
+    RK_S32              face_abs_qp;
     RK_S32              plate_delta_qp;
     RK_S32              delta_qp_min;
     RK_S32              delta_qp_max;

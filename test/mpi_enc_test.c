@@ -328,7 +328,9 @@ MPP_RET test_mpp_run(MpiEncMultiCtxInfo *info)
                     mpp_enc_roi_boxes_apply(p->roi_boxes_ctx, p->roi_ctx,
                                             p->frm_cnt_out, p->width, p->height,
                                             cmd->face_delta_qp,
-                                            cmd->plate_delta_qp);
+                                            cmd->plate_delta_qp,
+                                            cmd->face_expand_blocks,
+                                            cmd->face_abs_qp);
                 } else {
                     RoiRegionCfg *region = &p->roi_region;
 

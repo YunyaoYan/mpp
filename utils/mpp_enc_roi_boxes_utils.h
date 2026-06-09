@@ -29,12 +29,15 @@ MPP_RET mpp_enc_roi_boxes_init(MppEncRoiBoxesCtx *ctx, const char *json_file);
 MPP_RET mpp_enc_roi_boxes_deinit(MppEncRoiBoxesCtx ctx);
 
 /*
- * Add this frame's boxes into roi_ctx as relative-QP regions.
- * face boxes use face_delta, plate boxes use plate_delta (relative, qp_mode=0).
+ * Add this frame's boxes into roi_ctx as ROI regions.
+ * face_abs_qp >= 0: absolute QP for face boxes (qp_mode=1).
+ * otherwise face_delta / plate_delta are relative adjustments (qp_mode=0).
+ * face_expand_blocks expands each face box by N 16x16 blocks per side.
  * Returns number of regions added (>=0), or negative on error.
  */
 RK_S32 mpp_enc_roi_boxes_apply(MppEncRoiBoxesCtx ctx, MppEncRoiCtx roi_ctx,
                                RK_S32 frame_idx, RK_U32 width, RK_U32 height,
-                               RK_S32 face_delta, RK_S32 plate_delta);
+                               RK_S32 face_delta, RK_S32 plate_delta,
+                               RK_S32 face_expand_blocks, RK_S32 face_abs_qp);
 
 #endif /* MPP_ENC_ROI_BOXES_UTILS_H */
