@@ -2178,8 +2178,17 @@ MPP_RET mpi_enc_cfg_setup(MpiEncTestData *p, MpiEncTestArgs *cmd, MppEncCfg cfg_
     }
 
     if (cmd->roi_enable) {
-        mpp_enc_roi_init(&p->roi_ctx, p->width, p->height, p->type, 4);
+        mpp_enc_roi_init(&p->roi_ctx, p->width, p->height, p->type, 64);
         mpp_assert(p->roi_ctx);
+
+        /* optional: drive ROI regions from a boxes JSON (vepu580/RK3588) */
+        if (cmd->roi_boxes_json && cmd->roi_boxes_json[0]) {
+            ret = mpp_enc_roi_boxes_init(&p->roi_boxes_ctx, cmd->roi_boxes_json);
+            if (ret) {
+                mpp_err("roi boxes init failed ret %d\n", ret);
+                goto RET;
+            }
+        }
     }
 
     if (cmd->enable_qpmap_roi) {

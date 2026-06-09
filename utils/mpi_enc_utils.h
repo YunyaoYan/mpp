@@ -28,6 +28,7 @@
 #include "camera_source.h"
 #include "mpp_enc_roi_utils.h"
 #include "mpp_enc_qpmap_roi_utils.h"
+#include "mpp_enc_roi_boxes_utils.h"
 
 #define MPI_ENC_MAX_CHN 30
 
@@ -203,6 +204,7 @@ typedef struct {
     CamSource           *cam_ctx;
     MppEncRoiCtx        roi_ctx;
     MppEncQpmapRoiCtx   qpmap_roi_ctx;
+    MppEncRoiBoxesCtx   roi_boxes_ctx;
 
     MppVencKcfg         init_kcfg;
 
