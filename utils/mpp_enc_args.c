@@ -27,6 +27,21 @@ static rk_s32 mpp_enc_args_impl_init(void *entry, KmppObj obj, const char *calle
     args->enable_bg_compensation = 1;
     args->bg_delta_qp_max = 4;
 
+    /* ROI-protected background filter defaults */
+    args->enable_bg_filter = 0;
+    args->bg_filter_type = 0;               /* gaussian */
+    args->bg_filter_low_light_thr = 80;
+    args->bg_filter_strong_light_thr = 50;
+    args->bg_filter_kernel_weak = 3;
+    args->bg_filter_kernel_strong = 5;
+    args->roi_expand_face = 15;             /* 0.15 * 100 */
+    args->roi_expand_plate = 20;            /* 0.20 * 100 */
+    args->roi_expand_default = 10;          /* 0.10 * 100 */
+    args->roi_mask_dilate_iter = 1;
+    args->enable_temporal_bg_filter = 0;
+    args->temporal_alpha = 80;              /* 0.8 * 100 */
+    args->motion_diff_thr = 12;
+
     (void) obj;
     (void) caller;
 
@@ -53,6 +68,8 @@ static rk_s32 mpp_enc_args_impl_deinit(void *entry, KmppObj obj, const char *cal
     MPP_FREE(args->file_slt);
     MPP_FREE(args->roi_boxes_json);
     MPP_FREE(args->qpmap_debug_dir);
+    MPP_FREE(args->bg_filter_debug_dir);
+    MPP_FREE(args->bg_filter_boxes_json);
 
     (void) obj;
     (void) caller;
@@ -109,6 +126,20 @@ static rk_s32 mpp_enc_args_impl_dump(void *entry)
     ENTRY(prefix, u32,  rk_u32,     jpeg_osd_case,    FLAG_NONE,       jpeg_osd_case) \
     ENTRY(prefix, u32,  rk_u32,     constraint_set,   FLAG_NONE,       constraint_set) \
     ENTRY(prefix, u32,  rk_u32,     sei_mode,         FLAG_NONE,       sei_mode) \
+    ENTRY(prefix, u32,  rk_u32,     enable_bg_filter, FLAG_NONE,       enable_bg_filter) \
+    ENTRY(prefix, s32,  rk_s32,     bg_filter_type,   FLAG_NONE,       bg_filter_type) \
+    ENTRY(prefix, s32,  rk_s32,     bg_filter_low_light_thr, FLAG_NONE,  bg_filter_low_light_thr) \
+    ENTRY(prefix, s32,  rk_s32,     bg_filter_strong_light_thr, FLAG_NONE, bg_filter_strong_light_thr) \
+    ENTRY(prefix, s32,  rk_s32,     bg_filter_kernel_weak, FLAG_NONE,  bg_filter_kernel_weak) \
+    ENTRY(prefix, s32,  rk_s32,     bg_filter_kernel_strong, FLAG_NONE, bg_filter_kernel_strong) \
+    ENTRY(prefix, s32,  rk_s32,     roi_expand_face,  FLAG_NONE,       roi_expand_face) \
+    ENTRY(prefix, s32,  rk_s32,     roi_expand_plate, FLAG_NONE,       roi_expand_plate) \
+    ENTRY(prefix, s32,  rk_s32,     roi_expand_default, FLAG_NONE,     roi_expand_default) \
+    ENTRY(prefix, s32,  rk_s32,     roi_mask_dilate_iter, FLAG_NONE,   roi_mask_dilate_iter) \
+    ENTRY(prefix, u32,  rk_u32,     enable_temporal_bg_filter, FLAG_NONE, enable_temporal_bg_filter) \
+    ENTRY(prefix, s32,  rk_s32,     temporal_alpha,   FLAG_NONE,       temporal_alpha) \
+    ENTRY(prefix, s32,  rk_s32,     motion_diff_thr,  FLAG_NONE,       motion_diff_thr) \
+    ENTRY(prefix, u32,  rk_u32,     dump_bg_filter_debug, FLAG_NONE,   dump_bg_filter_debug) \
     CFG_DEF_END()
 
 #define KMPP_OBJ_NAME               mpp_enc_args

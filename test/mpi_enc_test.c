@@ -43,6 +43,7 @@ typedef struct MpiEncTestPriv_t {
     MppBuffer frm_buf;
     MppBuffer pkt_buf;
     MppBuffer md_info;
+    MppBuffer bg_filter_buf;
 } MpiEncTestPriv;
 
 typedef struct {
@@ -199,6 +200,17 @@ MPP_RET test_mpp_run(MpiEncMultiCtxInfo *info)
             } else if (ret == MPP_ERR_VALUE)
                 goto RET;
             mpp_buffer_sync_end(priv->frm_buf);
+
+            /* ROI-protected background filtering (only for file input) */
+            if (p->bg_filter_ctx && priv->bg_filter_buf) {
+                void *filter_out = mpp_buffer_get_ptr(priv->bg_filter_buf);
+                ret = mpp_enc_bg_filter_process(p->bg_filter_ctx, buf, filter_out,
+                                                p->frm_cnt_out, p->hor_stride, p->ver_stride);
+                if (ret == MPP_OK && mpp_enc_bg_filter_last_filtered(p->bg_filter_ctx)) {
+                    /* Copy filtered result back to original frame buffer */
+                    memcpy(buf, filter_out, p->frame_size);
+                }
+            }
         } else {
             if (p->cam_ctx == NULL) {
                 mpp_buffer_sync_begin(priv->frm_buf);
@@ -207,6 +219,16 @@ MPP_RET test_mpp_run(MpiEncMultiCtxInfo *info)
                 if (ret)
                     goto RET;
                 mpp_buffer_sync_end(priv->frm_buf);
+
+                /* ROI-protected background filtering (only for generated input) */
+                if (p->bg_filter_ctx && priv->bg_filter_buf) {
+                    void *filter_out = mpp_buffer_get_ptr(priv->bg_filter_buf);
+                    ret = mpp_enc_bg_filter_process(p->bg_filter_ctx, buf, filter_out,
+                                                    p->frm_cnt_out, p->hor_stride, p->ver_stride);
+                    if (ret == MPP_OK && mpp_enc_bg_filter_last_filtered(p->bg_filter_ctx)) {
+                        memcpy(buf, filter_out, p->frame_size);
+                    }
+                }
             } else {
                 cam_frm_idx = camera_source_get_frame(p->cam_ctx);
                 mpp_assert(cam_frm_idx >= 0);
@@ -581,6 +603,15 @@ void *enc_test(void *arg)
         goto MPP_TEST_OUT;
     }
 
+    /* Allocate background filter output buffer if enabled */
+    if (cmd->enable_bg_filter) {
+        ret = mpp_buffer_get(p->buf_grp, &priv->bg_filter_buf, p->frame_size);
+        if (ret) {
+            mpp_err_f("failed to get buffer for bg_filter output ret %d\n", ret);
+            goto MPP_TEST_OUT;
+        }
+    }
+
     // encoder demo
     ret = mpp_create(&p->ctx, &p->mpi);
     if (ret) {
@@ -625,6 +656,37 @@ void *enc_test(void *arg)
     if (ret) {
         mpp_err_f("test mpp setup failed ret %d\n", ret);
         goto MPP_TEST_OUT;
+    }
+
+    /* Initialize ROI-protected background filter if enabled */
+    if (cmd->enable_bg_filter) {
+        MppEncBgFilterCfg bg_cfg;
+
+        memset(&bg_cfg, 0, sizeof(bg_cfg));
+        bg_cfg.enable = cmd->enable_bg_filter;
+        bg_cfg.filter_type = cmd->bg_filter_type;
+        bg_cfg.low_light_thr = cmd->bg_filter_low_light_thr;
+        bg_cfg.strong_light_thr = cmd->bg_filter_strong_light_thr;
+        bg_cfg.kernel_weak = cmd->bg_filter_kernel_weak;
+        bg_cfg.kernel_strong = cmd->bg_filter_kernel_strong;
+        bg_cfg.roi_expand_face = cmd->roi_expand_face;
+        bg_cfg.roi_expand_plate = cmd->roi_expand_plate;
+        bg_cfg.roi_expand_default = cmd->roi_expand_default;
+        bg_cfg.roi_mask_dilate_iter = cmd->roi_mask_dilate_iter;
+        bg_cfg.enable_temporal = cmd->enable_temporal_bg_filter;
+        bg_cfg.temporal_alpha = cmd->temporal_alpha;
+        bg_cfg.motion_diff_thr = cmd->motion_diff_thr;
+        bg_cfg.dump_debug = cmd->dump_bg_filter_debug;
+        bg_cfg.debug_dir = cmd->bg_filter_debug_dir;
+        bg_cfg.boxes_file = cmd->bg_filter_boxes_json ? cmd->bg_filter_boxes_json : cmd->roi_boxes_json;
+
+        ret = mpp_enc_bg_filter_init(&p->bg_filter_ctx, p->width, p->height, p->fmt, &bg_cfg);
+        if (ret) {
+            mpp_err_f("bg_filter init failed ret %d, disable bg_filter\n", ret);
+            p->bg_filter_ctx = NULL;
+            /* Non-fatal: continue without bg_filter */
+            ret = MPP_OK;
+        }
     }
 
     t_s = mpp_time();
@@ -703,6 +765,17 @@ MPP_TEST_OUT:
         mpp_enc_qpmap_roi_deinit(p->qpmap_roi_ctx);
         p->qpmap_roi_ctx = NULL;
     }
+
+    if (p->bg_filter_ctx) {
+        mpp_enc_bg_filter_deinit(p->bg_filter_ctx);
+        p->bg_filter_ctx = NULL;
+    }
+
+    if (priv->bg_filter_buf) {
+        mpp_buffer_put(priv->bg_filter_buf);
+        priv->bg_filter_buf = NULL;
+    }
+
     if (p->init_kcfg)
         mpp_venc_kcfg_deinit(p->init_kcfg);
 
