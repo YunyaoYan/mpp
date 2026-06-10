@@ -323,28 +323,38 @@ MPP_RET test_mpp_run(MpiEncMultiCtxInfo *info)
             }
 
             if (cmd->roi_enable) {
-                RoiRegionCfg *region = &p->roi_region;
+                if (p->roi_boxes_ctx) {
+                    /* box-JSON driven relative-QP ROI (vepu580/RK3588 path) */
+                    mpp_enc_roi_boxes_apply(p->roi_boxes_ctx, p->roi_ctx,
+                                            p->frm_cnt_out, p->width, p->height,
+                                            cmd->face_delta_qp,
+                                            cmd->plate_delta_qp,
+                                            cmd->face_expand_blocks,
+                                            cmd->face_abs_qp);
+                } else {
+                    RoiRegionCfg *region = &p->roi_region;
 
-                /* calculated in pixels */
-                region->x = MPP_ALIGN(p->width / 8, 16);
-                region->y = MPP_ALIGN(p->height / 8, 16);
-                region->w = 128;
-                region->h = 256;
-                region->force_intra = 0;
-                region->qp_mode = 1;
-                region->qp_val = 24;
+                    /* calculated in pixels */
+                    region->x = MPP_ALIGN(p->width / 8, 16);
+                    region->y = MPP_ALIGN(p->height / 8, 16);
+                    region->w = 128;
+                    region->h = 256;
+                    region->force_intra = 0;
+                    region->qp_mode = 1;
+                    region->qp_val = 24;
 
-                mpp_enc_roi_add_region(p->roi_ctx, region);
+                    mpp_enc_roi_add_region(p->roi_ctx, region);
 
-                region->x = MPP_ALIGN(p->width / 2, 16);
-                region->y = MPP_ALIGN(p->height / 4, 16);
-                region->w = 256;
-                region->h = 128;
-                region->force_intra = 1;
-                region->qp_mode = 1;
-                region->qp_val = 10;
+                    region->x = MPP_ALIGN(p->width / 2, 16);
+                    region->y = MPP_ALIGN(p->height / 4, 16);
+                    region->w = 256;
+                    region->h = 128;
+                    region->force_intra = 1;
+                    region->qp_mode = 1;
+                    region->qp_val = 10;
 
-                mpp_enc_roi_add_region(p->roi_ctx, region);
+                    mpp_enc_roi_add_region(p->roi_ctx, region);
+                }
 
                 /* send roi info by metadata */
                 mpp_enc_roi_setup_meta(p->roi_ctx, meta);
@@ -677,6 +687,11 @@ MPP_TEST_OUT:
     if (p->buf_grp) {
         mpp_buffer_group_put(p->buf_grp);
         p->buf_grp = NULL;
+    }
+
+    if (p->roi_boxes_ctx) {
+        mpp_enc_roi_boxes_deinit(p->roi_boxes_ctx);
+        p->roi_boxes_ctx = NULL;
     }
 
     if (p->roi_ctx) {

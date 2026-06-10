@@ -28,6 +28,7 @@
 #include "camera_source.h"
 #include "mpp_enc_roi_utils.h"
 #include "mpp_enc_qpmap_roi_utils.h"
+#include "mpp_enc_roi_boxes_utils.h"
 
 #define MPI_ENC_MAX_CHN 30
 
@@ -132,6 +133,7 @@ typedef struct MpiEncTestArgs_t {
     char                *roi_boxes_json;
     RK_S32              face_delta_qp;
     RK_S32              face_expand_blocks;
+    RK_S32              face_abs_qp;
     RK_S32              plate_delta_qp;
     RK_S32              delta_qp_min;
     RK_S32              delta_qp_max;
@@ -203,6 +205,7 @@ typedef struct {
     CamSource           *cam_ctx;
     MppEncRoiCtx        roi_ctx;
     MppEncQpmapRoiCtx   qpmap_roi_ctx;
+    MppEncRoiBoxesCtx   roi_boxes_ctx;
 
     MppVencKcfg         init_kcfg;
 
