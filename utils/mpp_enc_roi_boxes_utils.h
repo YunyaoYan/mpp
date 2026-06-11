@@ -25,6 +25,10 @@
 
 typedef struct MppEncRoiBoxesImpl_t *MppEncRoiBoxesCtx;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 MPP_RET mpp_enc_roi_boxes_init(MppEncRoiBoxesCtx *ctx, const char *json_file);
 MPP_RET mpp_enc_roi_boxes_deinit(MppEncRoiBoxesCtx ctx);
 
@@ -39,5 +43,9 @@ RK_S32 mpp_enc_roi_boxes_apply(MppEncRoiBoxesCtx ctx, MppEncRoiCtx roi_ctx,
                                RK_S32 frame_idx, RK_U32 width, RK_U32 height,
                                RK_S32 face_delta, RK_S32 plate_delta,
                                RK_S32 face_expand_blocks, RK_S32 face_abs_qp);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* MPP_ENC_ROI_BOXES_UTILS_H */

@@ -358,6 +358,20 @@ RK_S32 mpp_enc_roi_boxes_apply(MppEncRoiBoxesCtx ctx, MppEncRoiCtx roi_ctx,
         region.y = (RK_U16)(by1 * 16);
         region.w = (RK_U16)(bw * 16);
         region.h = (RK_U16)(bh * 16);
+
+        /*
+         * gen_vepu54x_roi validates against actual frame w/h (e.g. 1080),
+         * not 16-aligned macroblock grid (1088 for 1080p). Shrink edge boxes.
+         */
+        if (region.x >= width || region.y >= height)
+            continue;
+        if (region.x + region.w > width)
+            region.w = (RK_U16)(width - region.x);
+        if (region.y + region.h > height)
+            region.h = (RK_U16)(height - region.y);
+        if (region.w < 16 || region.h < 16)
+            continue;
+
         region.force_intra = 0;
         if (box->type == ROI_BOX_FACE && face_abs_qp >= 0) {
             region.qp_mode = 1;
