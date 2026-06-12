@@ -182,7 +182,32 @@ roi_enable=1 ./build/roi_validate/test/mpi_enc_test \
 
 ---
 
-## 5. 相关源码索引
+## 5. Vega 生产路径接入（阶段 B）
+
+`vega/rknn2/srv/video_device_encoder.cpp` 的 `RknnVencProc` 已通过环境变量启用 ROI，由 `demo/main_video.py` 阶段2 子进程透传。
+
+| 环境变量 | 说明 |
+|----------|------|
+| `VEGA_ROI_ENABLE` | `1` 启用 |
+| `VEGA_ROI_BOXES_JSON` | `face_boxes.jsonl` 路径 |
+| `VEGA_FACE_DELTA_QP` | 人脸相对 QP（CBR 推荐） |
+| `VEGA_FACE_EXPAND_BLOCKS` | 框扩展（16×16 块） |
+| `VEGA_FACE_ABS_QP` | 绝对 QP（≥0 生效，默认关闭） |
+| `VEGA_ENC_RC_MODE` | 默认 `cbr` |
+| `VEGA_ENC_BPS` | 目标码率 bps |
+| `VEGA_ENC_QC` | 背景 QP `init:min:max:min_i:max_i` |
+| `VEGA_ROI_FRAME_OFFSET` | 帧序校准偏移 |
+
+```bash
+python3 demo/main_video.py -v demo/video/trim_dh_1955_1959.mp4 --codec h265 \
+  --roi-enable --cbr-bps 1250000 --face-delta-qp -18 --face-expand-blocks 2
+```
+
+`trim_dh_1955_1959.mp4`（CBR 1.25Mbps）：vega baseline ~2.43MB，ROI ~2.52MB，与 `mpi_enc_test` 阶段 A 结果一致。
+
+---
+
+## 6. 相关源码索引
 
 - vepu580 ROI 生成：`utils/mpp_enc_roi_utils.c` → `gen_vepu580_roi_h265()`，`ROI_TYPE_2`
 - SoC 选择：`mpp_enc_roi_init()` 中 `ROCKCHIP_SOC_RK3588 → ROI_TYPE_2`
