@@ -1137,6 +1137,27 @@ static RK_S32 mpi_enc_opt_plate_delta_qp(void *ctx, const char *next)
                                  "plate_delta_qp");
 }
 
+static RK_S32 mpi_enc_opt_person_delta_qp(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    return mpi_enc_opt_qpmap_s32(ctx, next, &obj_set->cmd->person_delta_qp,
+                                 "person_delta_qp");
+}
+
+static RK_S32 mpi_enc_opt_vehicle_delta_qp(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    return mpi_enc_opt_qpmap_s32(ctx, next, &obj_set->cmd->vehicle_delta_qp,
+                                 "vehicle_delta_qp");
+}
+
+static RK_S32 mpi_enc_opt_nonmotor_delta_qp(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    return mpi_enc_opt_qpmap_s32(ctx, next, &obj_set->cmd->nonmotor_delta_qp,
+                                 "nonmotor_delta_qp");
+}
+
 static RK_S32 mpi_enc_opt_delta_qp_min(void *ctx, const char *next)
 {
     MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
@@ -1170,6 +1191,13 @@ static RK_S32 mpi_enc_opt_bg_delta_qp_max(void *ctx, const char *next)
     MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
     return mpi_enc_opt_qpmap_s32(ctx, next, &obj_set->cmd->bg_delta_qp_max,
                                  "bg_delta_qp_max");
+}
+
+static RK_S32 mpi_enc_opt_qpmap_smooth_radius(void *ctx, const char *next)
+{
+    MppEncTestObjSet* obj_set = (MppEncTestObjSet *)ctx;
+    return mpi_enc_opt_qpmap_s32(ctx, next, &obj_set->cmd->qpmap_smooth_radius,
+                                 "qpmap_smooth_radius");
 }
 
 static RK_S32 mpi_enc_opt_dump_qpmap_debug(void *ctx, const char *next)
@@ -1456,10 +1484,14 @@ static MppOptInfo enc_opts[] = {
     {"face_expand_blocks", "face_expand_blocks", "face ROI expansion in 16x16 blocks", mpi_enc_opt_face_expand_blocks},
     {"face_abs_qp", "face_abs_qp", "face ROI absolute QP (>=0, overrides delta)",    mpi_enc_opt_face_abs_qp},
     {"plate_delta_qp", "plate_delta_qp", "plate ROI delta QP",                      mpi_enc_opt_plate_delta_qp},
+    {"person_delta_qp", "person_delta_qp", "person/body ROI delta QP",              mpi_enc_opt_person_delta_qp},
+    {"vehicle_delta_qp", "vehicle_delta_qp", "vehicle ROI delta QP",              mpi_enc_opt_vehicle_delta_qp},
+    {"nonmotor_delta_qp", "nonmotor_delta_qp", "non-motor vehicle ROI delta QP",  mpi_enc_opt_nonmotor_delta_qp},
     {"delta_qp_min", "delta_qp_min", "min ROI delta QP",                            mpi_enc_opt_delta_qp_min},
     {"delta_qp_max", "delta_qp_max", "max ROI delta QP",                            mpi_enc_opt_delta_qp_max},
     {"enable_bg_compensation", "enable_bg_compensation", "enable background QP compensation", mpi_enc_opt_enable_bg_compensation},
     {"bg_delta_qp_max", "bg_delta_qp_max", "max background delta QP",               mpi_enc_opt_bg_delta_qp_max},
+    {"qpmap_smooth_radius", "qpmap_smooth_radius", "QPMAP smooth radius in blocks (0=off)", mpi_enc_opt_qpmap_smooth_radius},
     {"dump_qpmap_debug", "dump_qpmap_debug", "dump QPMAP debug txt",                mpi_enc_opt_dump_qpmap_debug},
     {"qpmap_debug_dir", "qpmap_debug_dir", "QPMAP debug dump directory",            mpi_enc_opt_qpmap_debug_dir},
 
@@ -2458,10 +2490,14 @@ MPP_RET mpi_enc_cfg_setup(MpiEncTestData *p, MpiEncTestArgs *cmd, MppEncCfg cfg_
         /* NOTE: remote version may not have face_expand_blocks */
         /* qpmap_cfg.face_expand_blocks = cmd->face_expand_blocks; */
         qpmap_cfg.plate_delta_qp = cmd->plate_delta_qp;
+        qpmap_cfg.person_delta_qp = cmd->person_delta_qp;
+        qpmap_cfg.vehicle_delta_qp = cmd->vehicle_delta_qp;
+        qpmap_cfg.nonmotor_delta_qp = cmd->nonmotor_delta_qp;
         qpmap_cfg.delta_qp_min = cmd->delta_qp_min;
         qpmap_cfg.delta_qp_max = cmd->delta_qp_max;
         qpmap_cfg.enable_bg_compensation = cmd->enable_bg_compensation;
         qpmap_cfg.bg_delta_qp_max = cmd->bg_delta_qp_max;
+        qpmap_cfg.smooth_radius = cmd->qpmap_smooth_radius;
         qpmap_cfg.dump_qpmap_debug = cmd->dump_qpmap_debug;
         qpmap_cfg.debug_dir = cmd->qpmap_debug_dir;
 

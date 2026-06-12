@@ -24,6 +24,9 @@
 typedef enum RoiBoxType_t {
     ROI_BOX_FACE,
     ROI_BOX_PLATE,
+    ROI_BOX_PERSON,
+    ROI_BOX_VEHICLE,
+    ROI_BOX_NONMOTOR,
     ROI_BOX_UNKNOWN,
 } RoiBoxType;
 
@@ -45,6 +48,9 @@ typedef struct RoiFrameBoxes_t {
 typedef struct QpmapStats_t {
     RK_U32              face_box_count;
     RK_U32              plate_box_count;
+    RK_U32              person_box_count;
+    RK_U32              vehicle_box_count;
+    RK_U32              nonmotor_box_count;
     RK_U32              roi_block_count;
     RK_U32              bg_block_count;
     RK_S32              bg_delta_qp;
@@ -158,6 +164,12 @@ static RoiBoxType parse_type_key(char *obj)
         return ROI_BOX_FACE;
     if (!strncmp(p, "plate", 5))
         return ROI_BOX_PLATE;
+    if (!strncmp(p, "person", 6))
+        return ROI_BOX_PERSON;
+    if (!strncmp(p, "vehicle", 7))
+        return ROI_BOX_VEHICLE;
+    if (!strncmp(p, "nonmotor", 8))
+        return ROI_BOX_NONMOTOR;
 
     return ROI_BOX_UNKNOWN;
 }
@@ -357,6 +369,76 @@ static void encode_delta_to_qpmap(MppEncQpmapRoiCtx ctx)
     mpp_buffer_sync_end(ctx->qpmap_buf);
 }
 
+static void smooth_qpmap(MppEncQpmapRoiCtx ctx)
+{
+    RK_S16 *smooth_delta = NULL;
+    RK_U32 x, y, i;
+    RK_S32 radius = ctx->cfg.smooth_radius;
+
+    if (radius <= 0)
+        return;
+
+    smooth_delta = mpp_malloc(RK_S16, ctx->block_count);
+    if (!smooth_delta)
+        return;
+
+    memcpy(smooth_delta, ctx->delta_map, ctx->block_count * sizeof(RK_S16));
+
+    for (y = 0; y < ctx->mb_h; y++) {
+        for (x = 0; x < ctx->mb_w; x++) {
+            RK_U32 idx = y * ctx->mb_w + x;
+
+            if (ctx->roi_mask[idx])
+                continue;
+
+            RK_S32 min_dist = radius + 1;
+            RK_S16 nearest_roi_delta = 0;
+            RK_S32 sx, sy;
+
+            for (sy = -radius; sy <= radius; sy++) {
+                for (sx = -radius; sx <= radius; sx++) {
+                    RK_S32 nx = (RK_S32)x + sx;
+                    RK_S32 ny = (RK_S32)y + sy;
+                    RK_U32 nidx;
+                    RK_S32 dist;
+
+                    if (nx < 0 || nx >= (RK_S32)ctx->mb_w ||
+                        ny < 0 || ny >= (RK_S32)ctx->mb_h)
+                        continue;
+
+                    nidx = ny * ctx->mb_w + nx;
+                    if (!ctx->roi_mask[nidx])
+                        continue;
+
+                    dist = abs(sx) > abs(sy) ? abs(sx) : abs(sy);
+                    if (dist < min_dist) {
+                        min_dist = dist;
+                        nearest_roi_delta = ctx->delta_map[nidx];
+                    }
+                }
+            }
+
+            if (min_dist > 0 && min_dist <= radius) {
+                RK_S32 bg_delta = ctx->delta_map[idx];
+                RK_S32 t = min_dist * 256 / radius;
+                RK_S32 smoothed = (nearest_roi_delta * (256 - t) + bg_delta * t) / 256;
+
+                smoothed = qpmap_clamp_s32(smoothed,
+                                           ctx->cfg.delta_qp_min,
+                                           ctx->cfg.delta_qp_max);
+                smooth_delta[idx] = (RK_S16)smoothed;
+            }
+        }
+    }
+
+    for (i = 0; i < ctx->block_count; i++) {
+        if (!ctx->roi_mask[i])
+            ctx->delta_map[i] = smooth_delta[i];
+    }
+
+    MPP_FREE(smooth_delta);
+}
+
 static MPP_RET dump_qpmap(MppEncQpmapRoiCtx ctx, RK_S32 frame_idx, const QpmapStats *stats)
 {
     char path[1024];
@@ -388,9 +470,10 @@ static MPP_RET dump_qpmap(MppEncQpmapRoiCtx ctx, RK_S32 frame_idx, const QpmapSt
     }
     fclose(fp);
 
-    mpp_log("qpmap roi frame %d face %u plate %u roi_blk %u bg_blk %u "
-            "min %d max %d mean %.3f bg_delta %d set KEY_QPMAP0\n",
+    mpp_log("qpmap roi frame %d face %u plate %u person %u vehicle %u nonmotor %u "
+            "roi_blk %u bg_blk %u min %d max %d mean %.3f bg_delta %d set KEY_QPMAP0\n",
             frame_idx, stats->face_box_count, stats->plate_box_count,
+            stats->person_box_count, stats->vehicle_box_count, stats->nonmotor_box_count,
             stats->roi_block_count, stats->bg_block_count, stats->min_delta_qp,
             stats->max_delta_qp, stats->mean_delta_qp, stats->bg_delta_qp);
 
@@ -419,16 +502,33 @@ static MPP_RET generate_qpmap(MppEncQpmapRoiCtx ctx, const RoiFrameBoxes *boxes,
             RK_S32 y1 = qpmap_clamp_s32(box->y1, 0, (RK_S32)ctx->height);
             RK_S32 x2 = qpmap_clamp_s32(box->x2, 0, (RK_S32)ctx->width);
             RK_S32 y2 = qpmap_clamp_s32(box->y2, 0, (RK_S32)ctx->height);
-            RK_S32 delta = (box->type == ROI_BOX_PLATE) ?
-                           ctx->cfg.plate_delta_qp : ctx->cfg.face_delta_qp;
-            RK_S32 bx1, by1, bx2, by2, x, y;
-
-            if (box->type == ROI_BOX_FACE)
+            RK_S32 delta;
+            switch (box->type) {
+            case ROI_BOX_FACE:
+                delta = ctx->cfg.face_delta_qp;
                 stats->face_box_count++;
-            else if (box->type == ROI_BOX_PLATE)
+                break;
+            case ROI_BOX_PLATE:
+                delta = ctx->cfg.plate_delta_qp;
                 stats->plate_box_count++;
-            else
+                break;
+            case ROI_BOX_PERSON:
+                delta = ctx->cfg.person_delta_qp;
+                stats->person_box_count++;
+                break;
+            case ROI_BOX_VEHICLE:
+                delta = ctx->cfg.vehicle_delta_qp;
+                stats->vehicle_box_count++;
+                break;
+            case ROI_BOX_NONMOTOR:
+                delta = ctx->cfg.nonmotor_delta_qp;
+                stats->nonmotor_box_count++;
+                break;
+            default:
                 continue;
+            }
+
+            RK_S32 bx1, by1, bx2, by2, x, y;
 
             if (x2 <= x1 || y2 <= y1)
                 continue;
@@ -605,6 +705,7 @@ MPP_RET mpp_enc_qpmap_roi_setup_meta(MppEncQpmapRoiCtx ctx, MppMeta meta,
     if (ret)
         return ret;
 
+    smooth_qpmap(ctx);
     encode_delta_to_qpmap(ctx);
     mpp_meta_set_buffer(meta, KEY_QPMAP0, ctx->qpmap_buf);
 

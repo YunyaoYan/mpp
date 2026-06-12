@@ -18,10 +18,14 @@ typedef struct MppEncQpmapRoiCfg_t {
     RK_S32              face_delta_qp;
     RK_S32              face_expand_blocks;
     RK_S32              plate_delta_qp;
+    RK_S32              person_delta_qp;
+    RK_S32              vehicle_delta_qp;
+    RK_S32              nonmotor_delta_qp;
     RK_S32              delta_qp_min;
     RK_S32              delta_qp_max;
     RK_U32              enable_bg_compensation;
     RK_S32              bg_delta_qp_max;
+    RK_S32              smooth_radius;
     RK_U32              dump_qpmap_debug;
     const char          *debug_dir;
 } MppEncQpmapRoiCfg;

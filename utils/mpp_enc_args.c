@@ -22,10 +22,14 @@ static rk_s32 mpp_enc_args_impl_init(void *entry, KmppObj obj, const char *calle
     args->face_expand_blocks = 1;
     args->face_abs_qp = -1;
     args->plate_delta_qp = -6;
+    args->person_delta_qp = -4;
+    args->vehicle_delta_qp = -4;
+    args->nonmotor_delta_qp = -4;
     args->delta_qp_min = -8;
     args->delta_qp_max = 4;
     args->enable_bg_compensation = 1;
     args->bg_delta_qp_max = 4;
+    args->qpmap_smooth_radius = 2;
 
     /* ROI-protected background filter defaults */
     args->enable_bg_filter = 0;
@@ -118,10 +122,14 @@ static rk_s32 mpp_enc_args_impl_dump(void *entry)
     ENTRY(prefix, s32,  rk_s32,     face_expand_blocks, FLAG_NONE,     face_expand_blocks) \
     ENTRY(prefix, s32,  rk_s32,     face_abs_qp,      FLAG_NONE,       face_abs_qp) \
     ENTRY(prefix, s32,  rk_s32,     plate_delta_qp,   FLAG_NONE,       plate_delta_qp) \
+    ENTRY(prefix, s32,  rk_s32,     person_delta_qp,  FLAG_NONE,       person_delta_qp) \
+    ENTRY(prefix, s32,  rk_s32,     vehicle_delta_qp, FLAG_NONE,       vehicle_delta_qp) \
+    ENTRY(prefix, s32,  rk_s32,     nonmotor_delta_qp, FLAG_NONE,      nonmotor_delta_qp) \
     ENTRY(prefix, s32,  rk_s32,     delta_qp_min,     FLAG_NONE,       delta_qp_min) \
     ENTRY(prefix, s32,  rk_s32,     delta_qp_max,     FLAG_NONE,       delta_qp_max) \
     ENTRY(prefix, u32,  rk_u32,     enable_bg_compensation, FLAG_NONE, enable_bg_compensation) \
     ENTRY(prefix, s32,  rk_s32,     bg_delta_qp_max,  FLAG_NONE,       bg_delta_qp_max) \
+    ENTRY(prefix, s32,  rk_s32,     qpmap_smooth_radius, FLAG_NONE,    qpmap_smooth_radius) \
     ENTRY(prefix, u32,  rk_u32,     dump_qpmap_debug, FLAG_NONE,       dump_qpmap_debug) \
     ENTRY(prefix, u32,  rk_u32,     jpeg_osd_case,    FLAG_NONE,       jpeg_osd_case) \
     ENTRY(prefix, u32,  rk_u32,     constraint_set,   FLAG_NONE,       constraint_set) \
