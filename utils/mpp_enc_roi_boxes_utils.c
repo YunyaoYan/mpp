@@ -22,6 +22,9 @@
 typedef enum RoiBoxType_e {
     ROI_BOX_FACE,
     ROI_BOX_PLATE,
+    ROI_BOX_PERSON,
+    ROI_BOX_VEHICLE,
+    ROI_BOX_NONMOTOR,
     ROI_BOX_UNKNOWN,
 } RoiBoxType;
 
@@ -108,6 +111,12 @@ static RoiBoxType parse_type_key(char *obj)
         return ROI_BOX_FACE;
     if (!strncmp(p, "plate", 5))
         return ROI_BOX_PLATE;
+    if (!strncmp(p, "person", 6))
+        return ROI_BOX_PERSON;
+    if (!strncmp(p, "vehicle", 7))
+        return ROI_BOX_VEHICLE;
+    if (!strncmp(p, "nonmotor", 8))
+        return ROI_BOX_NONMOTOR;
     return ROI_BOX_UNKNOWN;
 }
 
@@ -146,6 +155,85 @@ static MPP_RET add_box(RoiFrameBoxes *frame, const RoiBox *box)
     }
     frame->boxes[frame->count++] = *box;
     return MPP_OK;
+}
+
+static RK_S32 clamp_s32(RK_S32 v, RK_S32 lo, RK_S32 hi)
+{
+    return v < lo ? lo : (v > hi ? hi : v);
+}
+
+static RK_S32 apply_one_box(MppEncRoiCtx roi_ctx, const RoiBox *box,
+                            RK_U32 width, RK_U32 height,
+                            RK_S32 face_delta, RK_S32 plate_delta,
+                            RK_S32 person_delta, RK_S32 vehicle_delta,
+                            RK_S32 nonmotor_delta,
+                            RK_S32 face_expand_blocks, RK_S32 face_abs_qp)
+{
+    RoiRegionCfg region;
+    RK_S32 delta;
+    RK_S32 mb_w = (RK_S32)(MPP_ALIGN(width, 16) / 16);
+    RK_S32 mb_h = (RK_S32)(MPP_ALIGN(height, 16) / 16);
+    RK_S32 bx1, by1, bx2, by2, bw, bh;
+
+    if (!roi_ctx || !box || mb_w <= 0 || mb_h <= 0)
+        return 0;
+
+    switch (box->type) {
+    case ROI_BOX_FACE:     delta = face_delta;     break;
+    case ROI_BOX_PLATE:    delta = plate_delta;    break;
+    case ROI_BOX_PERSON:   delta = person_delta;   break;
+    case ROI_BOX_VEHICLE:  delta = vehicle_delta;  break;
+    case ROI_BOX_NONMOTOR: delta = nonmotor_delta; break;
+    default:               return 0;
+    }
+
+    bx1 = box->x1 / 16;
+    by1 = box->y1 / 16;
+    bx2 = (box->x2 + 15) / 16;
+    by2 = (box->y2 + 15) / 16;
+
+    if (box->x2 <= box->x1 || box->y2 <= box->y1)
+        return 0;
+
+    if (box->type == ROI_BOX_FACE && face_expand_blocks > 0) {
+        bx1 -= face_expand_blocks;
+        by1 -= face_expand_blocks;
+        bx2 += face_expand_blocks;
+        by2 += face_expand_blocks;
+    }
+
+    bx1 = clamp_s32(bx1, 0, mb_w - 1);
+    by1 = clamp_s32(by1, 0, mb_h - 1);
+    bx2 = clamp_s32(bx2, bx1 + 1, mb_w);
+    by2 = clamp_s32(by2, by1 + 1, mb_h);
+    bw  = bx2 - bx1;
+    bh  = by2 - by1;
+
+    memset(&region, 0, sizeof(region));
+    region.x = (RK_U16)(bx1 * 16);
+    region.y = (RK_U16)(by1 * 16);
+    region.w = (RK_U16)(bw * 16);
+    region.h = (RK_U16)(bh * 16);
+
+    if (region.x >= width || region.y >= height)
+        return 0;
+    if (region.x + region.w > width)
+        region.w = (RK_U16)(width - region.x);
+    if (region.y + region.h > height)
+        region.h = (RK_U16)(height - region.y);
+    if (region.w < 16 || region.h < 16)
+        return 0;
+
+    region.force_intra = 0;
+    if (box->type == ROI_BOX_FACE && face_abs_qp >= 0) {
+        region.qp_mode = 1;
+        region.qp_val = clamp_s32(face_abs_qp, 0, 51);
+    } else {
+        region.qp_mode = 0;
+        region.qp_val = clamp_s32(delta, -51, 51);
+    }
+
+    return mpp_enc_roi_add_region(roi_ctx, &region) == MPP_OK ? 1 : 0;
 }
 
 static MPP_RET parse_frame_object(MppEncRoiBoxesCtx ctx, char *obj)
@@ -292,14 +380,11 @@ MPP_RET mpp_enc_roi_boxes_deinit(MppEncRoiBoxesCtx ctx)
     return MPP_OK;
 }
 
-static RK_S32 clamp_s32(RK_S32 v, RK_S32 lo, RK_S32 hi)
-{
-    return v < lo ? lo : (v > hi ? hi : v);
-}
-
 RK_S32 mpp_enc_roi_boxes_apply(MppEncRoiBoxesCtx ctx, MppEncRoiCtx roi_ctx,
                                RK_S32 frame_idx, RK_U32 width, RK_U32 height,
                                RK_S32 face_delta, RK_S32 plate_delta,
+                               RK_S32 person_delta, RK_S32 vehicle_delta,
+                               RK_S32 nonmotor_delta,
                                RK_S32 face_expand_blocks, RK_S32 face_abs_qp)
 {
     const RoiFrameBoxes *frame = NULL;
@@ -320,69 +405,65 @@ RK_S32 mpp_enc_roi_boxes_apply(MppEncRoiBoxesCtx ctx, MppEncRoiCtx roi_ctx,
     if (!frame)
         return 0;
 
-    for (i = 0; i < frame->count; i++) {
-        const RoiBox *box = &frame->boxes[i];
-        RoiRegionCfg region;
-        RK_S32 delta = (box->type == ROI_BOX_PLATE) ? plate_delta : face_delta;
-        /*
-         * Work in 16x16 block space so the region is guaranteed to satisfy
-         * gen_vepu54x_roi's assertions (block_init < mb, block_end <= mb),
-         * regardless of detector boxes that exceed the frame edge.
-         */
-        RK_S32 bx1 = box->x1 / 16;
-        RK_S32 by1 = box->y1 / 16;
-        RK_S32 bx2 = (box->x2 + 15) / 16;        /* exclusive block end */
-        RK_S32 by2 = (box->y2 + 15) / 16;
-        RK_S32 bw, bh;
+    for (i = 0; i < frame->count; i++)
+        added += apply_one_box(roi_ctx, &frame->boxes[i], width, height,
+                               face_delta, plate_delta, person_delta, vehicle_delta,
+                               nonmotor_delta, face_expand_blocks, face_abs_qp);
+    return added;
+}
 
-        if (box->x2 <= box->x1 || box->y2 <= box->y1)
-            continue;
+RK_S32 mpp_enc_roi_boxes_apply_frame(MppEncRoiCtx roi_ctx, const char *boxes_json,
+                                     RK_U32 width, RK_U32 height,
+                                     RK_S32 face_delta, RK_S32 plate_delta,
+                                     RK_S32 person_delta, RK_S32 vehicle_delta,
+                                     RK_S32 nonmotor_delta,
+                                     RK_S32 face_expand_blocks, RK_S32 face_abs_qp)
+{
+    char *json;
+    char *arr_end;
+    RK_S32 added = 0;
+    RK_S32 mb_w;
+    RK_S32 mb_h;
 
-        if (box->type == ROI_BOX_FACE && face_expand_blocks > 0) {
-            bx1 -= face_expand_blocks;
-            by1 -= face_expand_blocks;
-            bx2 += face_expand_blocks;
-            by2 += face_expand_blocks;
+    if (!roi_ctx || !boxes_json || !boxes_json[0])
+        return 0;
+
+    mb_w = (RK_S32)(MPP_ALIGN(width, 16) / 16);
+    mb_h = (RK_S32)(MPP_ALIGN(height, 16) / 16);
+    if (mb_w <= 0 || mb_h <= 0)
+        return -1;
+
+    json = skip_ws((char *)boxes_json);
+    if (!json || *json != '[')
+        return -1;
+
+    arr_end = find_matching(json, '[', ']');
+    if (!arr_end)
+        return -1;
+
+    for (json++; json < arr_end;) {
+        char *box_start = strchr(json, '{');
+        char *box_end;
+        RoiBox box;
+
+        if (!box_start || box_start >= arr_end)
+            break;
+        box_end = find_matching(box_start, '{', '}');
+        if (!box_end || box_end > arr_end)
+            return -1;
+
+        memset(&box, 0, sizeof(box));
+        box.type = parse_type_key(box_start);
+        if (box.type != ROI_BOX_UNKNOWN &&
+            parse_int_key(box_start, "x1", &box.x1) &&
+            parse_int_key(box_start, "y1", &box.y1) &&
+            parse_int_key(box_start, "x2", &box.x2) &&
+            parse_int_key(box_start, "y2", &box.y2)) {
+            added += apply_one_box(roi_ctx, &box, width, height,
+                                   face_delta, plate_delta, person_delta, vehicle_delta,
+                                   nonmotor_delta, face_expand_blocks, face_abs_qp);
         }
-
-        bx1 = clamp_s32(bx1, 0, mb_w - 1);
-        by1 = clamp_s32(by1, 0, mb_h - 1);
-        bx2 = clamp_s32(bx2, bx1 + 1, mb_w);
-        by2 = clamp_s32(by2, by1 + 1, mb_h);
-        bw  = bx2 - bx1;
-        bh  = by2 - by1;
-
-        memset(&region, 0, sizeof(region));
-        /* pixel coords aligned so the util re-derives exactly bx1/bw */
-        region.x = (RK_U16)(bx1 * 16);
-        region.y = (RK_U16)(by1 * 16);
-        region.w = (RK_U16)(bw * 16);
-        region.h = (RK_U16)(bh * 16);
-
-        /*
-         * gen_vepu54x_roi validates against actual frame w/h (e.g. 1080),
-         * not 16-aligned macroblock grid (1088 for 1080p). Shrink edge boxes.
-         */
-        if (region.x >= width || region.y >= height)
-            continue;
-        if (region.x + region.w > width)
-            region.w = (RK_U16)(width - region.x);
-        if (region.y + region.h > height)
-            region.h = (RK_U16)(height - region.y);
-        if (region.w < 16 || region.h < 16)
-            continue;
-
-        region.force_intra = 0;
-        if (box->type == ROI_BOX_FACE && face_abs_qp >= 0) {
-            region.qp_mode = 1;
-            region.qp_val = clamp_s32(face_abs_qp, 0, 51);
-        } else {
-            region.qp_mode = 0;
-            region.qp_val = clamp_s32(delta, -51, 51);
-        }
-
-        if (mpp_enc_roi_add_region(roi_ctx, &region) == MPP_OK)
-            added++;
+        json = box_end + 1;
     }
     return added;
 }
