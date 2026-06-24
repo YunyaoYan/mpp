@@ -337,6 +337,18 @@ static MPP_RET gen_vepu54x_roi(MppEncRoiImpl *ctx, Vepu541RoiCfg *dst)
             } else
                 pos_y_init = region->y / 64;
 
+            {
+                /* clamp CU64 grid writes to cu_map bounds (ctu_w x ctu_h) to avoid
+                 * out-of-bounds heap writes for edge boxes (esp. with expansion). */
+                RK_S32 cu64_w = (RK_S32)stride_cu64_h;
+                RK_S32 cu64_h = MPP_ALIGN(ctx->h, 64) / 64;
+                if (pos_x_init < 0) pos_x_init = 0;
+                if (pos_y_init < 0) pos_y_init = 0;
+                if (pos_x_init + roi_width  > cu64_w) roi_width  = cu64_w - pos_x_init;
+                if (pos_y_init + roi_height > cu64_h) roi_height = cu64_h - pos_y_init;
+                if (roi_width  < 0) roi_width  = 0;
+                if (roi_height < 0) roi_height = 0;
+            }
             map += pos_y_init * stride_cu64_h + pos_x_init;
             for (y = 0; y < roi_height; y++) {
                 for (x = 0; x < roi_width; x++) {
