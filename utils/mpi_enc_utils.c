@@ -2487,8 +2487,7 @@ MPP_RET mpi_enc_cfg_setup(MpiEncTestData *p, MpiEncTestArgs *cmd, MppEncCfg cfg_
         qpmap_cfg.enable = cmd->enable_qpmap_roi;
         qpmap_cfg.boxes_file = cmd->roi_boxes_json;
         qpmap_cfg.face_delta_qp = cmd->face_delta_qp;
-        /* NOTE: remote version may not have face_expand_blocks */
-        /* qpmap_cfg.face_expand_blocks = cmd->face_expand_blocks; */
+        qpmap_cfg.face_expand_blocks = cmd->face_expand_blocks;
         qpmap_cfg.plate_delta_qp = cmd->plate_delta_qp;
         qpmap_cfg.person_delta_qp = cmd->person_delta_qp;
         qpmap_cfg.vehicle_delta_qp = cmd->vehicle_delta_qp;

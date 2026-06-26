@@ -162,18 +162,50 @@ static RK_S32 clamp_s32(RK_S32 v, RK_S32 lo, RK_S32 hi)
     return v < lo ? lo : (v > hi ? hi : v);
 }
 
+static RK_S32 add_region_blocks(MppEncRoiCtx roi_ctx, RK_U32 width, RK_U32 height,
+                                RK_S32 bx1, RK_S32 by1, RK_S32 bx2, RK_S32 by2,
+                                RK_S32 qp_mode, RK_S32 qp_val)
+{
+    RoiRegionCfg region;
+
+    if (bx2 <= bx1 || by2 <= by1)
+        return 0;
+
+    memset(&region, 0, sizeof(region));
+    region.x = (RK_U16)(bx1 * 16);
+    region.y = (RK_U16)(by1 * 16);
+    region.w = (RK_U16)((bx2 - bx1) * 16);
+    region.h = (RK_U16)((by2 - by1) * 16);
+
+    if (region.x >= width || region.y >= height)
+        return 0;
+    if (region.x + region.w > width)
+        region.w = (RK_U16)(width - region.x);
+    if (region.y + region.h > height)
+        region.h = (RK_U16)(height - region.y);
+    if (region.w < 16 || region.h < 16)
+        return 0;
+
+    region.force_intra = 0;
+    region.qp_mode = qp_mode;
+    region.qp_val = qp_val;
+
+    return mpp_enc_roi_add_region(roi_ctx, &region) == MPP_OK ? 1 : 0;
+}
+
 static RK_S32 apply_one_box(MppEncRoiCtx roi_ctx, const RoiBox *box,
                             RK_U32 width, RK_U32 height,
                             RK_S32 face_delta, RK_S32 plate_delta,
                             RK_S32 person_delta, RK_S32 vehicle_delta,
-                            RK_S32 nonmotor_delta,
+                            RK_S32 nonmotor_delta, RK_S32 smooth_radius,
                             RK_S32 face_expand_blocks, RK_S32 face_abs_qp)
 {
-    RoiRegionCfg region;
     RK_S32 delta;
     RK_S32 mb_w = (RK_S32)(MPP_ALIGN(width, 16) / 16);
     RK_S32 mb_h = (RK_S32)(MPP_ALIGN(height, 16) / 16);
-    RK_S32 bx1, by1, bx2, by2, bw, bh;
+    RK_S32 bx1, by1, bx2, by2;
+    RK_S32 qp_mode, qp_val;
+    RK_S32 added;
 
     if (!roi_ctx || !box || mb_w <= 0 || mb_h <= 0)
         return 0;
@@ -206,34 +238,44 @@ static RK_S32 apply_one_box(MppEncRoiCtx roi_ctx, const RoiBox *box,
     by1 = clamp_s32(by1, 0, mb_h - 1);
     bx2 = clamp_s32(bx2, bx1 + 1, mb_w);
     by2 = clamp_s32(by2, by1 + 1, mb_h);
-    bw  = bx2 - bx1;
-    bh  = by2 - by1;
 
-    memset(&region, 0, sizeof(region));
-    region.x = (RK_U16)(bx1 * 16);
-    region.y = (RK_U16)(by1 * 16);
-    region.w = (RK_U16)(bw * 16);
-    region.h = (RK_U16)(bh * 16);
-
-    if (region.x >= width || region.y >= height)
-        return 0;
-    if (region.x + region.w > width)
-        region.w = (RK_U16)(width - region.x);
-    if (region.y + region.h > height)
-        region.h = (RK_U16)(height - region.y);
-    if (region.w < 16 || region.h < 16)
-        return 0;
-
-    region.force_intra = 0;
     if (box->type == ROI_BOX_FACE && face_abs_qp >= 0) {
-        region.qp_mode = 1;
-        region.qp_val = clamp_s32(face_abs_qp, 0, 51);
+        qp_mode = 1;
+        qp_val = clamp_s32(face_abs_qp, 0, 51);
     } else {
-        region.qp_mode = 0;
-        region.qp_val = clamp_s32(delta, -51, 51);
+        qp_mode = 0;
+        qp_val = clamp_s32(delta, -51, 51);
     }
 
-    return mpp_enc_roi_add_region(roi_ctx, &region) == MPP_OK ? 1 : 0;
+    added = add_region_blocks(roi_ctx, width, height, bx1, by1, bx2, by2,
+                              qp_mode, qp_val);
+
+    if (box->type == ROI_BOX_FACE && qp_mode == 0 && smooth_radius > 0 && qp_val) {
+        RK_S32 d;
+
+        smooth_radius = clamp_s32(smooth_radius, 0, 8);
+        for (d = 1; d <= smooth_radius; d++) {
+            RK_S32 ring_val = qp_val * (smooth_radius - d + 1) / (smooth_radius + 1);
+            RK_S32 ox1 = clamp_s32(bx1 - d, 0, mb_w);
+            RK_S32 oy1 = clamp_s32(by1 - d, 0, mb_h);
+            RK_S32 ox2 = clamp_s32(bx2 + d, 0, mb_w);
+            RK_S32 oy2 = clamp_s32(by2 + d, 0, mb_h);
+            RK_S32 ix1 = clamp_s32(bx1 - d + 1, 0, mb_w);
+            RK_S32 iy1 = clamp_s32(by1 - d + 1, 0, mb_h);
+            RK_S32 ix2 = clamp_s32(bx2 + d - 1, 0, mb_w);
+            RK_S32 iy2 = clamp_s32(by2 + d - 1, 0, mb_h);
+
+            if (!ring_val)
+                continue;
+
+            added += add_region_blocks(roi_ctx, width, height, ox1, oy1, ox2, iy1, 0, ring_val);
+            added += add_region_blocks(roi_ctx, width, height, ox1, iy2, ox2, oy2, 0, ring_val);
+            added += add_region_blocks(roi_ctx, width, height, ox1, iy1, ix1, iy2, 0, ring_val);
+            added += add_region_blocks(roi_ctx, width, height, ix2, iy1, ox2, iy2, 0, ring_val);
+        }
+    }
+
+    return added;
 }
 
 static MPP_RET parse_frame_object(MppEncRoiBoxesCtx ctx, char *obj)
@@ -384,7 +426,7 @@ RK_S32 mpp_enc_roi_boxes_apply(MppEncRoiBoxesCtx ctx, MppEncRoiCtx roi_ctx,
                                RK_S32 frame_idx, RK_U32 width, RK_U32 height,
                                RK_S32 face_delta, RK_S32 plate_delta,
                                RK_S32 person_delta, RK_S32 vehicle_delta,
-                               RK_S32 nonmotor_delta,
+                               RK_S32 nonmotor_delta, RK_S32 smooth_radius,
                                RK_S32 face_expand_blocks, RK_S32 face_abs_qp)
 {
     const RoiFrameBoxes *frame = NULL;
@@ -408,7 +450,8 @@ RK_S32 mpp_enc_roi_boxes_apply(MppEncRoiBoxesCtx ctx, MppEncRoiCtx roi_ctx,
     for (i = 0; i < frame->count; i++)
         added += apply_one_box(roi_ctx, &frame->boxes[i], width, height,
                                face_delta, plate_delta, person_delta, vehicle_delta,
-                               nonmotor_delta, face_expand_blocks, face_abs_qp);
+                               nonmotor_delta, smooth_radius,
+                               face_expand_blocks, face_abs_qp);
     return added;
 }
 
@@ -416,7 +459,7 @@ RK_S32 mpp_enc_roi_boxes_apply_frame(MppEncRoiCtx roi_ctx, const char *boxes_jso
                                      RK_U32 width, RK_U32 height,
                                      RK_S32 face_delta, RK_S32 plate_delta,
                                      RK_S32 person_delta, RK_S32 vehicle_delta,
-                                     RK_S32 nonmotor_delta,
+                                     RK_S32 nonmotor_delta, RK_S32 smooth_radius,
                                      RK_S32 face_expand_blocks, RK_S32 face_abs_qp)
 {
     char *json;
@@ -461,7 +504,8 @@ RK_S32 mpp_enc_roi_boxes_apply_frame(MppEncRoiCtx roi_ctx, const char *boxes_jso
             parse_int_key(box_start, "y2", &box.y2)) {
             added += apply_one_box(roi_ctx, &box, width, height,
                                    face_delta, plate_delta, person_delta, vehicle_delta,
-                                   nonmotor_delta, face_expand_blocks, face_abs_qp);
+                                   nonmotor_delta, smooth_radius,
+                                   face_expand_blocks, face_abs_qp);
         }
         json = box_end + 1;
     }

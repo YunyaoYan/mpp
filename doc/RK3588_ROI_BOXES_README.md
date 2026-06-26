@@ -162,10 +162,11 @@ roi_enable=1 ./build/roi_validate/test/mpi_enc_test \
 | `--roi_boxes_json` | 空 | boxes JSON/JSONL 路径；设置后走框驱动 ROI |
 | `--face_delta_qp` | -3 | 人脸相对 QP 调整 |
 | `--face_expand_blocks` | 1 | 人脸框扩展块数（16×16 像素/块） |
+| `--qpmap_smooth_radius` | 2 | RK3588 ROI box 路径下复用为人脸边界过渡外圈半径（16×16 像素/块） |
 | `--face_abs_qp` | -1 | ≥0 时启用人脸绝对 QP，覆盖 delta |
 | `--plate_delta_qp` | -6 | 车牌相对 QP 调整 |
 
-说明：`--enable_qpmap_roi`、`--enable_bg_compensation`、`--face_expand_blocks`（QPMAP 路径下的背景补偿）等选项仍保留，但在 **RK3588 上不生效**；RK3588 应使用本文档的 `roi_enable` + `roi_boxes_json` 路径。
+说明：`--enable_qpmap_roi`、`--enable_bg_compensation` 等 QPMAP 专用选项仍保留，但在 **RK3588 上不生效**；RK3588 应使用本文档的 `roi_enable` + `roi_boxes_json` 路径。`--face_expand_blocks` 和 `--qpmap_smooth_radius` 已接入 RK3588 ROI box 路径。
 
 ---
 

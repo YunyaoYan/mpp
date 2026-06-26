@@ -44,7 +44,7 @@ RK_S32 mpp_enc_roi_boxes_apply(MppEncRoiBoxesCtx ctx, MppEncRoiCtx roi_ctx,
                                RK_S32 frame_idx, RK_U32 width, RK_U32 height,
                                RK_S32 face_delta, RK_S32 plate_delta,
                                RK_S32 person_delta, RK_S32 vehicle_delta,
-                               RK_S32 nonmotor_delta,
+                               RK_S32 nonmotor_delta, RK_S32 smooth_radius,
                                RK_S32 face_expand_blocks, RK_S32 face_abs_qp);
 
 /*
@@ -56,7 +56,7 @@ RK_S32 mpp_enc_roi_boxes_apply_frame(MppEncRoiCtx roi_ctx, const char *boxes_jso
                                      RK_U32 width, RK_U32 height,
                                      RK_S32 face_delta, RK_S32 plate_delta,
                                      RK_S32 person_delta, RK_S32 vehicle_delta,
-                                     RK_S32 nonmotor_delta,
+                                     RK_S32 nonmotor_delta, RK_S32 smooth_radius,
                                      RK_S32 face_expand_blocks, RK_S32 face_abs_qp);
 
 #ifdef __cplusplus

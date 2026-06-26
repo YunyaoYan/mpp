@@ -354,6 +354,7 @@ MPP_RET test_mpp_run(MpiEncMultiCtxInfo *info)
                                             cmd->person_delta_qp,
                                             cmd->vehicle_delta_qp,
                                             cmd->nonmotor_delta_qp,
+                                            cmd->qpmap_smooth_radius,
                                             cmd->face_expand_blocks,
                                             cmd->face_abs_qp);
                 } else {

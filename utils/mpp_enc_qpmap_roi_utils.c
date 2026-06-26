@@ -10,6 +10,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 
@@ -387,12 +388,9 @@ static void smooth_qpmap(MppEncQpmapRoiCtx ctx)
     for (y = 0; y < ctx->mb_h; y++) {
         for (x = 0; x < ctx->mb_w; x++) {
             RK_U32 idx = y * ctx->mb_w + x;
-
-            if (ctx->roi_mask[idx])
-                continue;
-
+            RK_U8 cur_is_roi = ctx->roi_mask[idx];
             RK_S32 min_dist = radius + 1;
-            RK_S16 nearest_roi_delta = 0;
+            RK_S16 nearest_opposite_delta = ctx->delta_map[idx];
             RK_S32 sx, sy;
 
             for (sy = -radius; sy <= radius; sy++) {
@@ -407,21 +405,22 @@ static void smooth_qpmap(MppEncQpmapRoiCtx ctx)
                         continue;
 
                     nidx = ny * ctx->mb_w + nx;
-                    if (!ctx->roi_mask[nidx])
+                    if (!!ctx->roi_mask[nidx] == !!cur_is_roi)
                         continue;
 
                     dist = abs(sx) > abs(sy) ? abs(sx) : abs(sy);
                     if (dist < min_dist) {
                         min_dist = dist;
-                        nearest_roi_delta = ctx->delta_map[nidx];
+                        nearest_opposite_delta = ctx->delta_map[nidx];
                     }
                 }
             }
 
             if (min_dist > 0 && min_dist <= radius) {
-                RK_S32 bg_delta = ctx->delta_map[idx];
-                RK_S32 t = min_dist * 256 / radius;
-                RK_S32 smoothed = (nearest_roi_delta * (256 - t) + bg_delta * t) / 256;
+                RK_S32 cur_delta = ctx->delta_map[idx];
+                RK_S32 opposite_weight = (radius - min_dist + 1) * 256 / (radius + 1);
+                RK_S32 smoothed = (cur_delta * (256 - opposite_weight) +
+                                   nearest_opposite_delta * opposite_weight) / 256;
 
                 smoothed = qpmap_clamp_s32(smoothed,
                                            ctx->cfg.delta_qp_min,
@@ -431,10 +430,8 @@ static void smooth_qpmap(MppEncQpmapRoiCtx ctx)
         }
     }
 
-    for (i = 0; i < ctx->block_count; i++) {
-        if (!ctx->roi_mask[i])
-            ctx->delta_map[i] = smooth_delta[i];
-    }
+    for (i = 0; i < ctx->block_count; i++)
+        ctx->delta_map[i] = smooth_delta[i];
 
     MPP_FREE(smooth_delta);
 }
