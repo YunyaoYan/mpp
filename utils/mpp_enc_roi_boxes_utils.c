@@ -40,6 +40,8 @@ typedef struct RoiFrameBoxes_s {
     RoiBox      *boxes;
 } RoiFrameBoxes;
 
+#define ROI_REGION_LIMIT 64
+
 struct MppEncRoiBoxesImpl_t {
     RoiFrameBoxes   *frames;
     RK_U32          frame_count;
@@ -198,6 +200,7 @@ static RK_S32 apply_one_box(MppEncRoiCtx roi_ctx, const RoiBox *box,
                             RK_S32 face_delta, RK_S32 plate_delta,
                             RK_S32 person_delta, RK_S32 vehicle_delta,
                             RK_S32 nonmotor_delta, RK_S32 smooth_radius,
+                            RK_S32 smooth_distance,
                             RK_S32 face_expand_blocks, RK_S32 face_abs_qp)
 {
     RK_S32 delta;
@@ -205,7 +208,6 @@ static RK_S32 apply_one_box(MppEncRoiCtx roi_ctx, const RoiBox *box,
     RK_S32 mb_h = (RK_S32)(MPP_ALIGN(height, 16) / 16);
     RK_S32 bx1, by1, bx2, by2;
     RK_S32 qp_mode, qp_val;
-    RK_S32 added;
 
     if (!roi_ctx || !box || mb_w <= 0 || mb_h <= 0)
         return 0;
@@ -247,33 +249,73 @@ static RK_S32 apply_one_box(MppEncRoiCtx roi_ctx, const RoiBox *box,
         qp_val = clamp_s32(delta, -51, 51);
     }
 
-    added = add_region_blocks(roi_ctx, width, height, bx1, by1, bx2, by2,
-                              qp_mode, qp_val);
-
-    if (box->type == ROI_BOX_FACE && qp_mode == 0 && smooth_radius > 0 && qp_val) {
-        RK_S32 d;
+    if (smooth_distance > 0) {
+        if (box->type != ROI_BOX_FACE || qp_mode != 0 || !qp_val)
+            return 0;
 
         smooth_radius = clamp_s32(smooth_radius, 0, 8);
-        for (d = 1; d <= smooth_radius; d++) {
-            RK_S32 ring_val = qp_val * (smooth_radius - d + 1) / (smooth_radius + 1);
-            RK_S32 ox1 = clamp_s32(bx1 - d, 0, mb_w);
-            RK_S32 oy1 = clamp_s32(by1 - d, 0, mb_h);
-            RK_S32 ox2 = clamp_s32(bx2 + d, 0, mb_w);
-            RK_S32 oy2 = clamp_s32(by2 + d, 0, mb_h);
-            RK_S32 ix1 = clamp_s32(bx1 - d + 1, 0, mb_w);
-            RK_S32 iy1 = clamp_s32(by1 - d + 1, 0, mb_h);
-            RK_S32 ix2 = clamp_s32(bx2 + d - 1, 0, mb_w);
-            RK_S32 iy2 = clamp_s32(by2 + d - 1, 0, mb_h);
+        if (smooth_distance > smooth_radius)
+            return 0;
 
-            if (!ring_val)
+        qp_val = qp_val * (smooth_radius - smooth_distance + 1) /
+                 (smooth_radius + 1);
+        if (!qp_val)
+            return 0;
+
+        bx1 = clamp_s32(bx1 - smooth_distance, 0, mb_w);
+        by1 = clamp_s32(by1 - smooth_distance, 0, mb_h);
+        bx2 = clamp_s32(bx2 + smooth_distance, 0, mb_w);
+        by2 = clamp_s32(by2 + smooth_distance, 0, mb_h);
+    }
+
+    return add_region_blocks(roi_ctx, width, height, bx1, by1, bx2, by2,
+                             qp_mode, qp_val);
+}
+
+static RK_S32 apply_boxes(MppEncRoiCtx roi_ctx, const RoiBox *boxes, RK_U32 count,
+                          RK_U32 width, RK_U32 height,
+                          RK_S32 face_delta, RK_S32 plate_delta,
+                          RK_S32 person_delta, RK_S32 vehicle_delta,
+                          RK_S32 nonmotor_delta, RK_S32 smooth_radius,
+                          RK_S32 face_expand_blocks, RK_S32 face_abs_qp)
+{
+    RK_S32 added = 0;
+    RK_S32 smooth_budget;
+    RK_S32 d;
+    RK_U32 i;
+
+    /* Reserve one slot per core ROI. Smoothing is optional and never consumes it. */
+    smooth_budget = ROI_REGION_LIMIT - (RK_S32)count;
+    if (smooth_budget < 0)
+        smooth_budget = 0;
+    if (count > ROI_REGION_LIMIT)
+        mpp_err("roi boxes: %u core regions exceed limit %d\n",
+                count, ROI_REGION_LIMIT);
+    smooth_radius = clamp_s32(smooth_radius, 0, 8);
+
+    /* Expanded rectangles are written outside-in; core ROIs are written last. */
+    for (d = smooth_radius; d > 0 && smooth_budget > 0; d--) {
+        for (i = 0; i < count && smooth_budget > 0; i++) {
+            RK_S32 ret;
+
+            if (boxes[i].type != ROI_BOX_FACE)
                 continue;
-
-            added += add_region_blocks(roi_ctx, width, height, ox1, oy1, ox2, iy1, 0, ring_val);
-            added += add_region_blocks(roi_ctx, width, height, ox1, iy2, ox2, oy2, 0, ring_val);
-            added += add_region_blocks(roi_ctx, width, height, ox1, iy1, ix1, iy2, 0, ring_val);
-            added += add_region_blocks(roi_ctx, width, height, ix2, iy1, ox2, iy2, 0, ring_val);
+            ret = apply_one_box(roi_ctx, &boxes[i], width, height,
+                                face_delta, plate_delta, person_delta, vehicle_delta,
+                                nonmotor_delta, smooth_radius, d,
+                                face_expand_blocks, face_abs_qp);
+            if (ret > 0) {
+                added += ret;
+                smooth_budget -= ret;
+            }
         }
     }
+
+    for (i = 0; i < count; i++)
+        added += apply_one_box(roi_ctx, &boxes[i], width, height,
+                               face_delta, plate_delta, person_delta, vehicle_delta,
+                               nonmotor_delta, smooth_radius, 0,
+                               face_expand_blocks, face_abs_qp);
 
     return added;
 }
@@ -432,7 +474,6 @@ RK_S32 mpp_enc_roi_boxes_apply(MppEncRoiBoxesCtx ctx, MppEncRoiCtx roi_ctx,
     const RoiFrameBoxes *frame = NULL;
     RK_S32 mb_w = (RK_S32)(MPP_ALIGN(width, 16) / 16);
     RK_S32 mb_h = (RK_S32)(MPP_ALIGN(height, 16) / 16);
-    RK_S32 added = 0;
     RK_U32 i;
 
     if (!ctx || !roi_ctx || mb_w <= 0 || mb_h <= 0)
@@ -447,12 +488,10 @@ RK_S32 mpp_enc_roi_boxes_apply(MppEncRoiBoxesCtx ctx, MppEncRoiCtx roi_ctx,
     if (!frame)
         return 0;
 
-    for (i = 0; i < frame->count; i++)
-        added += apply_one_box(roi_ctx, &frame->boxes[i], width, height,
-                               face_delta, plate_delta, person_delta, vehicle_delta,
-                               nonmotor_delta, smooth_radius,
-                               face_expand_blocks, face_abs_qp);
-    return added;
+    return apply_boxes(roi_ctx, frame->boxes, frame->count, width, height,
+                       face_delta, plate_delta, person_delta, vehicle_delta,
+                       nonmotor_delta, smooth_radius,
+                       face_expand_blocks, face_abs_qp);
 }
 
 RK_S32 mpp_enc_roi_boxes_apply_frame(MppEncRoiCtx roi_ctx, const char *boxes_json,
@@ -464,12 +503,15 @@ RK_S32 mpp_enc_roi_boxes_apply_frame(MppEncRoiCtx roi_ctx, const char *boxes_jso
 {
     char *json;
     char *arr_end;
-    RK_S32 added = 0;
+    RoiFrameBoxes frame;
+    RK_S32 added;
     RK_S32 mb_w;
     RK_S32 mb_h;
 
     if (!roi_ctx || !boxes_json || !boxes_json[0])
         return 0;
+
+    memset(&frame, 0, sizeof(frame));
 
     mb_w = (RK_S32)(MPP_ALIGN(width, 16) / 16);
     mb_h = (RK_S32)(MPP_ALIGN(height, 16) / 16);
@@ -492,8 +534,10 @@ RK_S32 mpp_enc_roi_boxes_apply_frame(MppEncRoiCtx roi_ctx, const char *boxes_jso
         if (!box_start || box_start >= arr_end)
             break;
         box_end = find_matching(box_start, '{', '}');
-        if (!box_end || box_end > arr_end)
+        if (!box_end || box_end > arr_end) {
+            MPP_FREE(frame.boxes);
             return -1;
+        }
 
         memset(&box, 0, sizeof(box));
         box.type = parse_type_key(box_start);
@@ -502,12 +546,18 @@ RK_S32 mpp_enc_roi_boxes_apply_frame(MppEncRoiCtx roi_ctx, const char *boxes_jso
             parse_int_key(box_start, "y1", &box.y1) &&
             parse_int_key(box_start, "x2", &box.x2) &&
             parse_int_key(box_start, "y2", &box.y2)) {
-            added += apply_one_box(roi_ctx, &box, width, height,
-                                   face_delta, plate_delta, person_delta, vehicle_delta,
-                                   nonmotor_delta, smooth_radius,
-                                   face_expand_blocks, face_abs_qp);
+            if (add_box(&frame, &box)) {
+                MPP_FREE(frame.boxes);
+                return -1;
+            }
         }
         json = box_end + 1;
     }
+
+    added = apply_boxes(roi_ctx, frame.boxes, frame.count, width, height,
+                        face_delta, plate_delta, person_delta, vehicle_delta,
+                        nonmotor_delta, smooth_radius,
+                        face_expand_blocks, face_abs_qp);
+    MPP_FREE(frame.boxes);
     return added;
 }

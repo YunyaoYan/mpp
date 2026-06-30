@@ -77,7 +77,7 @@ boxes.jsonl
 vepu580 硬件编码
 ```
 
-`mpp_enc_roi_setup_meta()` 在提交 meta 后会将 `impl->count` 置零，因此**每帧**可注入不同的框列表（最多 64 个 region，由 `mpp_enc_roi_init(..., 64)` 限制）。
+`mpp_enc_roi_setup_meta()` 在提交 meta 后会将 `impl->count` 置零，因此**每帧**可注入不同的框列表（最多 64 个 region，由 `mpp_enc_roi_init(..., 64)` 限制）。开启平滑时会先为所有原始 ROI 预留核心 region，再用剩余名额添加由外到内的平滑矩形，最后写入核心 ROI；平滑不会挤占原始人脸框。
 
 ### 2.4 框坐标与块对齐
 
@@ -162,7 +162,7 @@ roi_enable=1 ./build/roi_validate/test/mpi_enc_test \
 | `--roi_boxes_json` | 空 | boxes JSON/JSONL 路径；设置后走框驱动 ROI |
 | `--face_delta_qp` | -3 | 人脸相对 QP 调整 |
 | `--face_expand_blocks` | 1 | 人脸框扩展块数（16×16 像素/块） |
-| `--qpmap_smooth_radius` | 2 | RK3588 ROI box 路径下复用为人脸边界过渡外圈半径（16×16 像素/块） |
+| `--qpmap_smooth_radius` | 2 | RK3588 ROI box 路径下复用为人脸边界过渡层数（16×16 像素/层，每层每脸 1 个 region） |
 | `--face_abs_qp` | -1 | ≥0 时启用人脸绝对 QP，覆盖 delta |
 | `--plate_delta_qp` | -6 | 车牌相对 QP 调整 |
 
