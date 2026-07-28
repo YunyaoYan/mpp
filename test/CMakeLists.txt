@@ -67,3 +67,28 @@ endmacro()
 
 # legacy vpu_api unit test
 add_legacy_test(vpu_api)
+
+# JPEG coefficient-domain ROI recompression prototype. This is intentionally
+# optional so the core MPP libraries do not acquire a mandatory libjpeg
+# dependency.
+option(MPP_JPEG_ROI_RECOMPRESS_TEST
+       "Build JPEG coefficient-domain ROI recompression test" ${BUILD_TEST})
+if(MPP_JPEG_ROI_RECOMPRESS_TEST)
+    find_package(JPEG QUIET)
+    if(JPEG_FOUND)
+        add_executable(mpp_jpeg_roi_recompress_test
+            mpp_jpeg_roi_recompress_test.c
+            ${PROJECT_SOURCE_DIR}/utils/mpp_jpeg_roi_recompress.c)
+        target_include_directories(mpp_jpeg_roi_recompress_test PRIVATE
+            ${PROJECT_SOURCE_DIR}/utils
+            ${JPEG_INCLUDE_DIR})
+        target_link_libraries(mpp_jpeg_roi_recompress_test ${JPEG_LIBRARIES})
+        set_target_properties(mpp_jpeg_roi_recompress_test PROPERTIES
+            FOLDER "test")
+        install(TARGETS mpp_jpeg_roi_recompress_test
+                RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+    else()
+        message(STATUS
+                "libjpeg not found: skip mpp_jpeg_roi_recompress_test")
+    endif()
+endif()
