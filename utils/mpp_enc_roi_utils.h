@@ -43,6 +43,15 @@ MPP_RET mpp_enc_roi_init(MppEncRoiCtx *ctx, RK_U32 w, RK_U32 h, MppCodingType ty
 MPP_RET mpp_enc_roi_deinit(MppEncRoiCtx ctx);
 
 MPP_RET mpp_enc_roi_add_region(MppEncRoiCtx ctx, RoiRegionCfg *region);
+
+/*
+ * Set a dense 16x16 relative-QP map for the next mpp_enc_roi_setup_meta().
+ * Rectangle regions added afterwards take priority over this base map.
+ * A zero entry is neutral and does not enable ROI for that block.
+ */
+MPP_RET mpp_enc_roi_set_block_qp_map(MppEncRoiCtx ctx, const RK_S16 *delta_qp_map,
+                                     RK_U32 map_w, RK_U32 map_h,
+                                     RK_U32 map_stride);
 MPP_RET mpp_enc_roi_setup_meta(MppEncRoiCtx ctx, MppMeta meta);
 
 #ifdef __cplusplus

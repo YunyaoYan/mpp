@@ -10,6 +10,7 @@ add_library(utils OBJECT
     mpp_enc_qpmap_roi_utils.c
     mpp_enc_roi_boxes_utils.c
     mpp_enc_bg_filter_utils.c
+    mpp_enc_static_roi_utils.c
     mpi_enc_utils.c
     mpi_dec_utils.c
     mpp_opt.c

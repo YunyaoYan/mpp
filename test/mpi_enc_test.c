@@ -264,6 +264,51 @@ MPP_RET test_mpp_run(MpiEncMultiCtxInfo *info)
         else
             mpp_frame_set_buffer(frame, priv->frm_buf);
 
+        /*
+         * Build a dense static-structure map before ROI metadata is generated.
+         * The map is a base layer; detector rectangles are appended later and
+         * therefore keep the highest priority on both vepu541 and vepu580.
+         */
+        if (p->static_roi_ctx && mpp_frame_get_buffer(frame)) {
+            MppBuffer input_buf = mpp_frame_get_buffer(frame);
+            const RK_U8 *luma = (const RK_U8 *)mpp_buffer_get_ptr(input_buf);
+            const RK_S16 *delta_map = NULL;
+            const RK_U8 *protect_map = NULL;
+            RK_U32 map_w = 0, map_h = 0, map_stride = 0;
+            RK_U32 need_sync = input_buf != priv->frm_buf;
+
+            if (need_sync)
+                mpp_buffer_sync_ro_begin(input_buf);
+            ret = mpp_enc_static_roi_process(p->static_roi_ctx, luma,
+                                             p->hor_stride, p->frm_cnt_out);
+            if (need_sync)
+                mpp_buffer_sync_ro_end(input_buf);
+
+            if (ret) {
+                mpp_err("static roi process failed frame %d ret %d\n",
+                        p->frm_cnt_out, ret);
+            } else if (!mpp_enc_static_roi_get_map(p->static_roi_ctx,
+                                                   &delta_map, &protect_map,
+                                                   &map_w, &map_h, &map_stride)) {
+                if (p->roi_ctx) {
+                    ret = mpp_enc_roi_set_block_qp_map(p->roi_ctx, delta_map,
+                                                       map_w, map_h, map_stride);
+                    if (ret)
+                        mpp_err("set ROI_DATA2 static map failed ret %d\n", ret);
+                }
+                if (p->qpmap_roi_ctx) {
+                    ret = mpp_enc_qpmap_roi_set_external_map(p->qpmap_roi_ctx,
+                                                             delta_map,
+                                                             protect_map,
+                                                             map_w, map_h,
+                                                             map_stride);
+                    if (ret)
+                        mpp_err("set QPMAP0 static map failed ret %d\n", ret);
+                }
+            }
+            ret = MPP_OK;
+        }
+
         meta = mpp_frame_get_meta(frame);
         mpp_packet_init_with_buffer(&packet, priv->pkt_buf);
         /* NOTE: It is important to clear output packet length!! */
@@ -773,6 +818,11 @@ MPP_TEST_OUT:
     if (p->bg_filter_ctx) {
         mpp_enc_bg_filter_deinit(p->bg_filter_ctx);
         p->bg_filter_ctx = NULL;
+    }
+
+    if (p->static_roi_ctx) {
+        mpp_enc_static_roi_deinit(p->static_roi_ctx);
+        p->static_roi_ctx = NULL;
     }
 
     if (priv->bg_filter_buf) {

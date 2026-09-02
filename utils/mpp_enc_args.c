@@ -31,6 +31,17 @@ static rk_s32 mpp_enc_args_impl_init(void *entry, KmppObj obj, const char *calle
     args->bg_delta_qp_max = 4;
     args->qpmap_smooth_radius = 2;
 
+    /* Static-structure ROI defaults: conservative, no spatial filtering. */
+    args->enable_static_roi = 0;
+    args->static_roi_sample_step = 2;
+    args->static_roi_mad_thr = 4;
+    args->static_roi_edge_thr = 24;
+    args->static_roi_edge_density = 8;
+    args->static_roi_stable_frames = 8;
+    args->static_roi_hold_frames = 12;
+    args->static_roi_structure_delta_qp = -4;
+    args->static_roi_flat_delta_qp = 4;
+
     /* ROI-protected background filter defaults */
     args->enable_bg_filter = 0;
     args->bg_filter_type = 0;               /* gaussian */
@@ -72,6 +83,7 @@ static rk_s32 mpp_enc_args_impl_deinit(void *entry, KmppObj obj, const char *cal
     MPP_FREE(args->file_slt);
     MPP_FREE(args->roi_boxes_json);
     MPP_FREE(args->qpmap_debug_dir);
+    MPP_FREE(args->static_roi_debug_dir);
     MPP_FREE(args->bg_filter_debug_dir);
     MPP_FREE(args->bg_filter_boxes_json);
 
@@ -131,6 +143,16 @@ static rk_s32 mpp_enc_args_impl_dump(void *entry)
     ENTRY(prefix, s32,  rk_s32,     bg_delta_qp_max,  FLAG_NONE,       bg_delta_qp_max) \
     ENTRY(prefix, s32,  rk_s32,     qpmap_smooth_radius, FLAG_NONE,    qpmap_smooth_radius) \
     ENTRY(prefix, u32,  rk_u32,     dump_qpmap_debug, FLAG_NONE,       dump_qpmap_debug) \
+    ENTRY(prefix, u32,  rk_u32,     enable_static_roi, FLAG_NONE,      enable_static_roi) \
+    ENTRY(prefix, s32,  rk_s32,     static_roi_sample_step, FLAG_NONE, static_roi_sample_step) \
+    ENTRY(prefix, s32,  rk_s32,     static_roi_mad_thr, FLAG_NONE,     static_roi_mad_thr) \
+    ENTRY(prefix, s32,  rk_s32,     static_roi_edge_thr, FLAG_NONE,    static_roi_edge_thr) \
+    ENTRY(prefix, s32,  rk_s32,     static_roi_edge_density, FLAG_NONE, static_roi_edge_density) \
+    ENTRY(prefix, s32,  rk_s32,     static_roi_stable_frames, FLAG_NONE, static_roi_stable_frames) \
+    ENTRY(prefix, s32,  rk_s32,     static_roi_hold_frames, FLAG_NONE, static_roi_hold_frames) \
+    ENTRY(prefix, s32,  rk_s32,     static_roi_structure_delta_qp, FLAG_NONE, static_roi_structure_delta_qp) \
+    ENTRY(prefix, s32,  rk_s32,     static_roi_flat_delta_qp, FLAG_NONE, static_roi_flat_delta_qp) \
+    ENTRY(prefix, u32,  rk_u32,     dump_static_roi_debug, FLAG_NONE,  dump_static_roi_debug) \
     ENTRY(prefix, u32,  rk_u32,     jpeg_osd_case,    FLAG_NONE,       jpeg_osd_case) \
     ENTRY(prefix, u32,  rk_u32,     constraint_set,   FLAG_NONE,       constraint_set) \
     ENTRY(prefix, u32,  rk_u32,     sei_mode,         FLAG_NONE,       sei_mode) \

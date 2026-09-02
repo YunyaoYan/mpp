@@ -28,11 +28,22 @@ typedef struct MppEncQpmapRoiCfg_t {
     RK_S32              smooth_radius;
     RK_U32              dump_qpmap_debug;
     const char          *debug_dir;
+    RK_U32              enable_external_map;
 } MppEncQpmapRoiCfg;
 
 MPP_RET mpp_enc_qpmap_roi_init(MppEncQpmapRoiCtx *ctx, RK_U32 w, RK_U32 h,
                                MppCodingType type, const MppEncQpmapRoiCfg *cfg);
 MPP_RET mpp_enc_qpmap_roi_deinit(MppEncQpmapRoiCtx ctx);
+/*
+ * Set a dense 16x16 relative-QP base map for the next setup_meta call.
+ * Detection boxes are applied afterwards and take priority. protect_map marks
+ * stable high-structure blocks for ROI accounting and boundary smoothing.
+ */
+MPP_RET mpp_enc_qpmap_roi_set_external_map(MppEncQpmapRoiCtx ctx,
+                                           const RK_S16 *delta_qp_map,
+                                           const RK_U8 *protect_map,
+                                           RK_U32 map_w, RK_U32 map_h,
+                                           RK_U32 map_stride);
 MPP_RET mpp_enc_qpmap_roi_setup_meta(MppEncQpmapRoiCtx ctx, MppMeta meta,
                                      RK_S32 frame_idx);
 

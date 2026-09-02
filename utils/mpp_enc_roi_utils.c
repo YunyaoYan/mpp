@@ -166,6 +166,11 @@ typedef struct MppEncRoiImpl_t {
 
     /* tmp buffer for convert vepu54x roi cfg to vepu58x roi cfg */
     Vepu541RoiCfg       *tmp;
+
+    /* Optional dense 16x16 relative-QP base map for the next frame. */
+    RK_S16              *block_qp_map;
+    RK_U32              block_qp_count;
+    RK_U32              block_qp_set;
 } MppEncRoiImpl;
 
 static RK_U32 raster2scan8[64] = {
@@ -247,6 +252,36 @@ static MPP_RET gen_vepu54x_roi(MppEncRoiImpl *ctx, Vepu541RoiCfg *dst)
     if (ctx->w <= 0 || ctx->h <= 0) {
         mpp_err_f("invalid size [%d:%d]\n", ctx->w, ctx->h);
         goto DONE;
+    }
+
+    /*
+     * Step 1.5: apply the dense base map. Rectangle regions are processed in
+     * step 2 and intentionally overwrite it, keeping detector ROI highest.
+     */
+    if (ctx->block_qp_set && ctx->block_qp_map) {
+        RK_S32 x, y;
+        RK_S32 ctu_w = MPP_ALIGN(ctx->w, 64) / 64;
+
+        for (y = 0; y < mb_h; y++) {
+            for (x = 0; x < mb_w; x++) {
+                RK_S32 delta = ctx->block_qp_map[y * mb_w + x];
+
+                if (!delta)
+                    continue;
+                cfg.force_intra = 0;
+                cfg.reserved = 0;
+                cfg.qp_area_idx = 0;
+                cfg.qp_area_en = 1;
+                cfg.qp_adj = delta;
+                cfg.qp_adj_mode = 0;
+                memcpy(dst + y * stride_h + x, &cfg, sizeof(cfg));
+
+                if (ctx->type == MPP_VIDEO_CodingAVC)
+                    ctx->cu_map[y * stride_h + x] = 1;
+                else if (ctx->type == MPP_VIDEO_CodingHEVC)
+                    ctx->cu_map[(y / 4) * ctu_w + x / 4] = 1;
+            }
+        }
     }
 
     /* check region config */
@@ -681,6 +716,16 @@ MPP_RET mpp_enc_roi_init(MppEncRoiCtx *ctx, RK_U32 w, RK_U32 h, MppCodingType ty
     impl->max_count = count;
     impl->regions = mpp_calloc(RoiRegionCfg, count);
 
+    {
+        RK_U32 block_w = MPP_ALIGN(w, 16) / 16;
+        RK_U32 block_h = MPP_ALIGN(h, 16) / 16;
+
+        impl->block_qp_count = block_w * block_h;
+        impl->block_qp_map = mpp_calloc(RK_S16, impl->block_qp_count);
+        if (!impl->regions || !impl->block_qp_map)
+            goto done;
+    }
+
     switch (roi_type) {
     case ROI_TYPE_1 : {
         RK_S32 mb_w = MPP_ALIGN(impl->w, 16) / 16;
@@ -834,6 +879,7 @@ MPP_RET mpp_enc_roi_deinit(MppEncRoiCtx ctx)
     MPP_FREE(impl->legacy_roi_region);
     MPP_FREE(impl->regions);
     MPP_FREE(impl->tmp);
+    MPP_FREE(impl->block_qp_map);
 
     MPP_FREE(impl);
     return MPP_OK;
@@ -851,6 +897,37 @@ MPP_RET mpp_enc_roi_add_region(MppEncRoiCtx ctx, RoiRegionCfg *region)
     memcpy(impl->regions + impl->count, region, sizeof(*impl->regions));
     impl->count++;
 
+    return MPP_OK;
+}
+
+MPP_RET mpp_enc_roi_set_block_qp_map(MppEncRoiCtx ctx,
+                                     const RK_S16 *delta_qp_map,
+                                     RK_U32 map_w, RK_U32 map_h,
+                                     RK_U32 map_stride)
+{
+    MppEncRoiImpl *impl = (MppEncRoiImpl *)ctx;
+    RK_U32 expected_w, expected_h, x, y;
+
+    if (!impl || !delta_qp_map)
+        return MPP_ERR_VALUE;
+    if (impl->roi_type == ROI_TYPE_LEGACY)
+        return MPP_ERR_UNKNOW;
+
+    expected_w = MPP_ALIGN(impl->w, 16) / 16;
+    expected_h = MPP_ALIGN(impl->h, 16) / 16;
+    if (map_w != expected_w || map_h != expected_h || map_stride < map_w)
+        return MPP_ERR_VALUE;
+
+    for (y = 0; y < map_h; y++) {
+        for (x = 0; x < map_w; x++) {
+            RK_S32 delta = delta_qp_map[y * map_stride + x];
+
+            if (delta < -51) delta = -51;
+            if (delta > 51) delta = 51;
+            impl->block_qp_map[y * expected_w + x] = (RK_S16)delta;
+        }
+    }
+    impl->block_qp_set = 1;
     return MPP_OK;
 }
 
@@ -922,6 +999,7 @@ MPP_RET mpp_enc_roi_setup_meta(MppEncRoiCtx ctx, MppMeta meta)
     }
 
     impl->count = 0;
+    impl->block_qp_set = 0;
 
     return MPP_OK;
 }

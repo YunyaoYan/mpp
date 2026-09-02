@@ -1223,6 +1223,56 @@ static RK_S32 mpi_enc_opt_qpmap_debug_dir(void *ctx, const char *next)
 }
 
 /* ------------------------------------------------------------------------
+ *  Content-adaptive static-structure ROI option handlers
+ * ------------------------------------------------------------------------ */
+
+static RK_S32 mpi_enc_opt_enable_static_roi(void *ctx, const char *next)
+{
+    MppEncTestObjSet *obj_set = (MppEncTestObjSet *)ctx;
+
+    if (!next)
+        return 0;
+    obj_set->cmd->enable_static_roi = atoi(next);
+    return 1;
+}
+
+#define STATIC_ROI_S32_OPT(name, field) \
+    static RK_S32 mpi_enc_opt_##name(void *ctx, const char *next) \
+    { \
+        MppEncTestObjSet *obj_set = (MppEncTestObjSet *)ctx; \
+        return mpi_enc_opt_qpmap_s32(ctx, next, &obj_set->cmd->field, #name); \
+    }
+
+STATIC_ROI_S32_OPT(static_roi_sample_step, static_roi_sample_step)
+STATIC_ROI_S32_OPT(static_roi_mad_thr, static_roi_mad_thr)
+STATIC_ROI_S32_OPT(static_roi_edge_thr, static_roi_edge_thr)
+STATIC_ROI_S32_OPT(static_roi_edge_density, static_roi_edge_density)
+STATIC_ROI_S32_OPT(static_roi_stable_frames, static_roi_stable_frames)
+STATIC_ROI_S32_OPT(static_roi_hold_frames, static_roi_hold_frames)
+STATIC_ROI_S32_OPT(static_roi_structure_delta_qp, static_roi_structure_delta_qp)
+STATIC_ROI_S32_OPT(static_roi_flat_delta_qp, static_roi_flat_delta_qp)
+
+#undef STATIC_ROI_S32_OPT
+
+static RK_S32 mpi_enc_opt_dump_static_roi_debug(void *ctx, const char *next)
+{
+    MppEncTestObjSet *obj_set = (MppEncTestObjSet *)ctx;
+
+    if (!next)
+        return 0;
+    obj_set->cmd->dump_static_roi_debug = atoi(next);
+    return 1;
+}
+
+static RK_S32 mpi_enc_opt_static_roi_debug_dir(void *ctx, const char *next)
+{
+    MppEncTestObjSet *obj_set = (MppEncTestObjSet *)ctx;
+
+    return mpi_enc_opt_strdup(&obj_set->cmd->static_roi_debug_dir, next,
+                              "static_roi_debug_dir");
+}
+
+/* ------------------------------------------------------------------------
  *  ROI-protected background filter option handlers
  * ------------------------------------------------------------------------ */
 
@@ -1495,6 +1545,19 @@ static MppOptInfo enc_opts[] = {
     {"dump_qpmap_debug", "dump_qpmap_debug", "dump QPMAP debug txt",                mpi_enc_opt_dump_qpmap_debug},
     {"qpmap_debug_dir", "qpmap_debug_dir", "QPMAP debug dump directory",            mpi_enc_opt_qpmap_debug_dir},
 
+    /* Content-adaptive static-structure ROI options */
+    {"enable_static_roi", "enable_static_roi", "enable 16x16 static-structure ROI map", mpi_enc_opt_enable_static_roi},
+    {"static_roi_sample_step", "static_roi_sample_step", "luma sampling step: 1/2/4/8", mpi_enc_opt_static_roi_sample_step},
+    {"static_roi_mad_thr", "static_roi_mad_thr", "static block mean absolute difference threshold", mpi_enc_opt_static_roi_mad_thr},
+    {"static_roi_edge_thr", "static_roi_edge_thr", "sampled gradient edge threshold", mpi_enc_opt_static_roi_edge_thr},
+    {"static_roi_edge_density", "static_roi_edge_density", "structure edge density threshold percent", mpi_enc_opt_static_roi_edge_density},
+    {"static_roi_stable_frames", "static_roi_stable_frames", "frames required before static classification", mpi_enc_opt_static_roi_stable_frames},
+    {"static_roi_hold_frames", "static_roi_hold_frames", "frames to retain structure protection", mpi_enc_opt_static_roi_hold_frames},
+    {"static_roi_structure_delta_qp", "static_roi_structure_delta_qp", "stable structure relative QP", mpi_enc_opt_static_roi_structure_delta_qp},
+    {"static_roi_flat_delta_qp", "static_roi_flat_delta_qp", "stable flat relative QP", mpi_enc_opt_static_roi_flat_delta_qp},
+    {"dump_static_roi_debug", "dump_static_roi_debug", "dump static ROI class maps", mpi_enc_opt_dump_static_roi_debug},
+    {"static_roi_debug_dir", "static_roi_debug_dir", "static ROI debug directory", mpi_enc_opt_static_roi_debug_dir},
+
     /* ROI-protected background filter options */
     {"enable_bg_filter", "enable_bg_filter", "enable ROI-protected background filter", mpi_enc_opt_enable_bg_filter},
     {"bg_filter_type", "bg_filter_type", "bg filter type: 0=gaussian 1=bilateral(reserved)", mpi_enc_opt_bg_filter_type},
@@ -1585,10 +1648,21 @@ static void mpi_enc_cmd_env_get(MpiEncTestArgs *cmd)
     mpp_env_get_u32("osd_mode", &cmd->osd_mode, cmd->osd_mode);
     mpp_env_get_u32("roi_enable", &cmd->roi_enable, cmd->roi_enable);
     mpp_env_get_u32("enable_qpmap_roi", &cmd->enable_qpmap_roi, cmd->enable_qpmap_roi);
+    mpp_env_get_u32("enable_static_roi", &cmd->enable_static_roi, cmd->enable_static_roi);
     mpp_env_get_u32("user_data_enable", &cmd->user_data_enable, cmd->user_data_enable);
     mpp_env_get_u32("constraint_set", &cmd->constraint_set, cmd->constraint_set);
     mpp_env_get_u32("gop_mode", (RK_U32 *)&cmd->gop_mode, (RK_U32)cmd->gop_mode);
     mpp_env_get_u32("sei_mode", &cmd->sei_mode, cmd->sei_mode);
+
+    mpp_env_get_u32("static_roi_sample_step", (RK_U32 *)&cmd->static_roi_sample_step, (RK_U32)cmd->static_roi_sample_step);
+    mpp_env_get_u32("static_roi_mad_thr", (RK_U32 *)&cmd->static_roi_mad_thr, (RK_U32)cmd->static_roi_mad_thr);
+    mpp_env_get_u32("static_roi_edge_thr", (RK_U32 *)&cmd->static_roi_edge_thr, (RK_U32)cmd->static_roi_edge_thr);
+    mpp_env_get_u32("static_roi_edge_density", (RK_U32 *)&cmd->static_roi_edge_density, (RK_U32)cmd->static_roi_edge_density);
+    mpp_env_get_u32("static_roi_stable_frames", (RK_U32 *)&cmd->static_roi_stable_frames, (RK_U32)cmd->static_roi_stable_frames);
+    mpp_env_get_u32("static_roi_hold_frames", (RK_U32 *)&cmd->static_roi_hold_frames, (RK_U32)cmd->static_roi_hold_frames);
+    mpp_env_get_u32("static_roi_structure_delta_qp", (RK_U32 *)&cmd->static_roi_structure_delta_qp, (RK_U32)cmd->static_roi_structure_delta_qp);
+    mpp_env_get_u32("static_roi_flat_delta_qp", (RK_U32 *)&cmd->static_roi_flat_delta_qp, (RK_U32)cmd->static_roi_flat_delta_qp);
+    mpp_env_get_u32("dump_static_roi_debug", &cmd->dump_static_roi_debug, cmd->dump_static_roi_debug);
 
     /* ROI-protected background filter env overrides (use u32 for s32 fields) */
     mpp_env_get_u32("enable_bg_filter", &cmd->enable_bg_filter, cmd->enable_bg_filter);
@@ -2480,6 +2554,36 @@ MPP_RET mpi_enc_cfg_setup(MpiEncTestData *p, MpiEncTestArgs *cmd, MppEncCfg cfg_
         }
     }
 
+    if (cmd->enable_static_roi) {
+        MppEncStaticRoiCfg static_cfg;
+
+        if (!cmd->roi_enable && !cmd->enable_qpmap_roi) {
+            mpp_err("static roi requires roi_enable (RK3588) or enable_qpmap_roi (RK3568)\n");
+            ret = MPP_ERR_VALUE;
+            goto RET;
+        }
+
+        memset(&static_cfg, 0, sizeof(static_cfg));
+        static_cfg.enable = cmd->enable_static_roi;
+        static_cfg.sample_step = cmd->static_roi_sample_step;
+        static_cfg.motion_mad_thr = cmd->static_roi_mad_thr;
+        static_cfg.edge_pixel_thr = cmd->static_roi_edge_thr;
+        static_cfg.edge_density_thr = cmd->static_roi_edge_density;
+        static_cfg.stable_frames = cmd->static_roi_stable_frames;
+        static_cfg.structure_hold_frames = cmd->static_roi_hold_frames;
+        static_cfg.structure_delta_qp = cmd->static_roi_structure_delta_qp;
+        static_cfg.flat_delta_qp = cmd->static_roi_flat_delta_qp;
+        static_cfg.dump_debug = cmd->dump_static_roi_debug;
+        static_cfg.debug_dir = cmd->static_roi_debug_dir;
+
+        ret = mpp_enc_static_roi_init(&p->static_roi_ctx, p->width, p->height,
+                                      p->fmt, &static_cfg);
+        if (ret) {
+            mpp_err("static roi init failed ret %d\n", ret);
+            goto RET;
+        }
+    }
+
     if (cmd->enable_qpmap_roi) {
         MppEncQpmapRoiCfg qpmap_cfg;
 
@@ -2499,6 +2603,7 @@ MPP_RET mpi_enc_cfg_setup(MpiEncTestData *p, MpiEncTestArgs *cmd, MppEncCfg cfg_
         qpmap_cfg.smooth_radius = cmd->qpmap_smooth_radius;
         qpmap_cfg.dump_qpmap_debug = cmd->dump_qpmap_debug;
         qpmap_cfg.debug_dir = cmd->qpmap_debug_dir;
+        qpmap_cfg.enable_external_map = cmd->enable_static_roi;
 
         ret = mpp_enc_qpmap_roi_init(&p->qpmap_roi_ctx, p->width, p->height,
                                      p->type, &qpmap_cfg);

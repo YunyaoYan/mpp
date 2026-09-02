@@ -72,6 +72,10 @@ struct MppEncQpmapRoiImpl_t {
     RK_U32              block_count;
     RK_S16              *delta_map;
     RK_U8               *roi_mask;
+    RK_U8               *det_mask;
+    RK_S16              *external_delta_map;
+    RK_U8               *external_protect_map;
+    RK_U32              external_map_set;
     MppBuffer           qpmap_buf;
     RK_U32              qpmap_size;
     RoiFrameBoxes       *frames;
@@ -488,9 +492,20 @@ static MPP_RET generate_qpmap(MppEncQpmapRoiCtx ctx, const RoiFrameBoxes *boxes,
 
     memset(ctx->delta_map, 0, ctx->block_count * sizeof(ctx->delta_map[0]));
     memset(ctx->roi_mask, 0, ctx->block_count * sizeof(ctx->roi_mask[0]));
+    memset(ctx->det_mask, 0, ctx->block_count * sizeof(ctx->det_mask[0]));
     memset(stats, 0, sizeof(*stats));
     stats->min_delta_qp = 0;
     stats->max_delta_qp = 0;
+
+    if (ctx->external_map_set) {
+        for (i = 0; i < ctx->block_count; i++) {
+            ctx->delta_map[i] = ctx->external_delta_map[i];
+            if (ctx->external_protect_map[i]) {
+                ctx->roi_mask[i] = 1;
+                roi_count++;
+            }
+        }
+    }
 
     if (boxes) {
         for (i = 0; i < boxes->count; i++) {
@@ -556,8 +571,10 @@ static MPP_RET generate_qpmap(MppEncQpmapRoiCtx ctx, const RoiFrameBoxes *boxes,
                         ctx->roi_mask[idx] = 1;
                         roi_count++;
                     }
-                    if (ctx->delta_map[idx] > delta)
+                    /* First detector box overwrites the static base map. */
+                    if (!ctx->det_mask[idx] || ctx->delta_map[idx] > delta)
                         ctx->delta_map[idx] = (RK_S16)delta;
+                    ctx->det_mask[idx] = 1;
                 }
             }
         }
@@ -578,8 +595,15 @@ static MPP_RET generate_qpmap(MppEncQpmapRoiCtx ctx, const RoiFrameBoxes *boxes,
         stats->bg_delta_qp = bg_delta;
 
         for (i = 0; i < ctx->block_count; i++) {
-            if (!ctx->roi_mask[i])
-                ctx->delta_map[i] = (RK_S16)bg_delta;
+            if (!ctx->roi_mask[i]) {
+                /* With a static map, compensate only blocks explicitly
+                 * classified as flat. Unknown/dynamic blocks stay neutral.
+                 * Without an external map, preserve the legacy all-background
+                 * compensation behaviour. */
+                if ((!ctx->external_map_set || ctx->external_delta_map[i] > 0) &&
+                    ctx->delta_map[i] < bg_delta)
+                    ctx->delta_map[i] = (RK_S16)bg_delta;
+            }
         }
     }
 
@@ -616,7 +640,7 @@ MPP_RET mpp_enc_qpmap_roi_init(MppEncQpmapRoiCtx *ctx_out, RK_U32 w, RK_U32 h,
         return MPP_NOK;
     }
 
-    if (!cfg->boxes_file || !cfg->boxes_file[0]) {
+    if ((!cfg->boxes_file || !cfg->boxes_file[0]) && !cfg->enable_external_map) {
         mpp_err("qpmap roi: roi_boxes_json is required when enable_qpmap_roi=1\n");
         return MPP_NOK;
     }
@@ -637,8 +661,12 @@ MPP_RET mpp_enc_qpmap_roi_init(MppEncQpmapRoiCtx *ctx_out, RK_U32 w, RK_U32 h,
     ctx->qpmap_size = ctx->stride_h * ctx->stride_v * sizeof(RK_U16) + 32;
     ctx->delta_map = mpp_calloc(RK_S16, ctx->block_count);
     ctx->roi_mask = mpp_calloc(RK_U8, ctx->block_count);
+    ctx->det_mask = mpp_calloc(RK_U8, ctx->block_count);
+    ctx->external_delta_map = mpp_calloc(RK_S16, ctx->block_count);
+    ctx->external_protect_map = mpp_calloc(RK_U8, ctx->block_count);
 
-    if (!ctx->delta_map || !ctx->roi_mask) {
+    if (!ctx->delta_map || !ctx->roi_mask || !ctx->det_mask ||
+        !ctx->external_delta_map || !ctx->external_protect_map) {
         ret = MPP_ERR_MALLOC;
         goto ERR;
     }
@@ -650,12 +678,14 @@ MPP_RET mpp_enc_qpmap_roi_init(MppEncQpmapRoiCtx *ctx_out, RK_U32 w, RK_U32 h,
         goto ERR;
     }
 
-    ret = load_boxes(ctx, cfg->boxes_file);
-    if (ret)
-        goto ERR;
+    if (cfg->boxes_file && cfg->boxes_file[0]) {
+        ret = load_boxes(ctx, cfg->boxes_file);
+        if (ret)
+            goto ERR;
+    }
 
     mpp_log("qpmap roi: loaded %u frame records from %s, grid %ux%u stride %ux%u\n",
-            ctx->frame_count, cfg->boxes_file, ctx->mb_w, ctx->mb_h,
+            ctx->frame_count, cfg->boxes_file ? cfg->boxes_file : "<external-map>", ctx->mb_w, ctx->mb_h,
             ctx->stride_h, ctx->stride_v);
 
     *ctx_out = ctx;
@@ -682,8 +712,39 @@ MPP_RET mpp_enc_qpmap_roi_deinit(MppEncQpmapRoiCtx ctx)
     MPP_FREE(ctx->frames);
     MPP_FREE(ctx->delta_map);
     MPP_FREE(ctx->roi_mask);
+    MPP_FREE(ctx->det_mask);
+    MPP_FREE(ctx->external_delta_map);
+    MPP_FREE(ctx->external_protect_map);
     MPP_FREE(ctx);
 
+    return MPP_OK;
+}
+
+MPP_RET mpp_enc_qpmap_roi_set_external_map(MppEncQpmapRoiCtx ctx,
+                                           const RK_S16 *delta_qp_map,
+                                           const RK_U8 *protect_map,
+                                           RK_U32 map_w, RK_U32 map_h,
+                                           RK_U32 map_stride)
+{
+    RK_U32 x, y;
+
+    if (!ctx || !delta_qp_map || !protect_map || map_w != ctx->mb_w ||
+        map_h != ctx->mb_h || map_stride < map_w)
+        return MPP_ERR_VALUE;
+
+    for (y = 0; y < map_h; y++) {
+        for (x = 0; x < map_w; x++) {
+            RK_U32 src = y * map_stride + x;
+            RK_U32 dst = y * ctx->mb_w + x;
+            RK_S32 delta = delta_qp_map[src];
+
+            delta = qpmap_clamp_s32(delta, ctx->cfg.delta_qp_min,
+                                    ctx->cfg.delta_qp_max);
+            ctx->external_delta_map[dst] = (RK_S16)delta;
+            ctx->external_protect_map[dst] = !!protect_map[src];
+        }
+    }
+    ctx->external_map_set = 1;
     return MPP_OK;
 }
 
@@ -705,6 +766,8 @@ MPP_RET mpp_enc_qpmap_roi_setup_meta(MppEncQpmapRoiCtx ctx, MppMeta meta,
     smooth_qpmap(ctx);
     encode_delta_to_qpmap(ctx);
     mpp_meta_set_buffer(meta, KEY_QPMAP0, ctx->qpmap_buf);
+
+    ctx->external_map_set = 0;
 
     return dump_qpmap(ctx, frame_idx, &stats);
 }

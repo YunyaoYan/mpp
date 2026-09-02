@@ -30,6 +30,7 @@
 #include "mpp_enc_qpmap_roi_utils.h"
 #include "mpp_enc_roi_boxes_utils.h"
 #include "mpp_enc_bg_filter_utils.h"
+#include "mpp_enc_static_roi_utils.h"
 
 #define MPI_ENC_MAX_CHN 30
 
@@ -146,6 +147,19 @@ typedef struct MpiEncTestArgs_t {
     RK_S32              qpmap_smooth_radius;
     RK_U32              dump_qpmap_debug;
     char                *qpmap_debug_dir;
+
+    /* Content-adaptive static-structure ROI */
+    RK_U32              enable_static_roi;
+    RK_S32              static_roi_sample_step;
+    RK_S32              static_roi_mad_thr;
+    RK_S32              static_roi_edge_thr;
+    RK_S32              static_roi_edge_density;
+    RK_S32              static_roi_stable_frames;
+    RK_S32              static_roi_hold_frames;
+    RK_S32              static_roi_structure_delta_qp;
+    RK_S32              static_roi_flat_delta_qp;
+    RK_U32              dump_static_roi_debug;
+    char                *static_roi_debug_dir;
     RK_U32              jpeg_osd_case;
 
     /* ROI-protected background filtering */
@@ -230,6 +244,7 @@ typedef struct {
     MppEncQpmapRoiCtx   qpmap_roi_ctx;
     MppEncRoiBoxesCtx   roi_boxes_ctx;
     MppEncBgFilterCtx   bg_filter_ctx;
+    MppEncStaticRoiCtx  static_roi_ctx;
 
     MppVencKcfg         init_kcfg;
 
